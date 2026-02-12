@@ -1,0 +1,37 @@
+services:
+  - type: web
+    name: control-pagos-backend
+    runtime: node
+    plan: free
+    buildCommand: npm install && npm run build
+    startCommand: npm run start:prod
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DB_HOST
+        fromDatabase:
+          name: control-pagos-db
+          property: host
+      - key: DB_PORT
+        fromDatabase:
+          name: control-pagos-db
+          property: port
+      - key: DB_NAME
+        fromDatabase:
+          name: control-pagos-db
+          property: database
+      - key: DB_USERNAME
+        fromDatabase:
+          name: control-pagos-db
+          property: user
+      - key: DB_PASSWORD
+        fromDatabase:
+          name: control-pagos-db
+          property: password
+      - key: DB_SSL
+        value: "true"
+
+databases:
+  - name: control-pagos-db
+    databaseName: control_pagos
+    user: control_pagos_user
