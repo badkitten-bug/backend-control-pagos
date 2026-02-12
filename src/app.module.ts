@@ -27,7 +27,7 @@ import { SubcontractsModule } from './subcontracts/subcontracts.module';
       serveRoot: '/uploads',
     }),
     TypeOrmModule.forRoot({
-      type: 'postgres',
+      type: (process.env.DB_TYPE as any) || 'postgres',
       host: process.env.DB_HOST || 'localhost',
       port: parseInt(process.env.DB_PORT || '5432'),
       username: process.env.DB_USERNAME || 'postgres',
