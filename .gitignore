@@ -97,3 +97,9 @@ dist
 
 # TernJS port file
 .tern-port
+# Local Database
+database.sqlite
+database.sqlite-journal
+
+# Environment variables
+.env
