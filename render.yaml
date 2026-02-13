@@ -8,6 +8,10 @@ services:
     envVars:
       - key: NODE_ENV
         value: production
+      # Opción 1 (recomendada con Supabase): una sola variable con la URL del pooler
+      - key: DATABASE_URL
+        sync: false
+      # Opción 2: variables sueltas (si no usas DATABASE_URL)
       - key: DB_HOST
         sync: false
       - key: DB_PORT
