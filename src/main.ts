@@ -29,15 +29,20 @@ async function bootstrap() {
   // Global prefix for all routes
   app.setGlobalPrefix('api');
 
-  // Enable CORS
+  // Enable CORS (frontend en Vercel + local)
+  const allowedOrigins = [
+    'http://localhost:5173',
+    'http://localhost:3000',
+    'https://frontend-control-pagos.vercel.app',
+    'http://161.132.40.223',
+    'http://sv-gGbrDIE0BxoM6dAKh5SW.cloud.elastika.pe',
+    'https://sv-gGbrDIE0BxoM6dAKh5SW.cloud.elastika.pe',
+  ];
   app.enableCors({
-    origin: [
-      'http://localhost:5173',
-      'http://localhost:3000',
-      'http://161.132.40.223',
-      'http://sv-gGbrDIE0BxoM6dAKh5SW.cloud.elastika.pe',
-      'https://sv-gGbrDIE0BxoM6dAKh5SW.cloud.elastika.pe',
-    ],
+    origin: (origin, callback) => {
+      const allowed = !origin || allowedOrigins.includes(origin) || origin.endsWith('.vercel.app');
+      callback(null, allowed ? origin || true : false);
+    },
     credentials: true,
   });
 
