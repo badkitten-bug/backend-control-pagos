@@ -32,19 +32,15 @@ import { SubcontractsModule } from './subcontracts/subcontracts.module';
             type: 'postgres',
             url: process.env.DATABASE_URL,
             entities: [__dirname + '/**/*.entity{.ts,.js}'],
-            synchronize: true, // Solo desarrollo; en producción considerar migraciones
-            ssl: { rejectUnauthorized: false }, // Requerido para Supabase
+            synchronize: true,
+            ssl: { rejectUnauthorized: false },
           }
         : {
-            type: (process.env.DB_TYPE as any) || 'postgres',
-            host: process.env.DB_HOST || 'localhost',
-            port: parseInt(process.env.DB_PORT || '5432'),
-            username: process.env.DB_USERNAME || 'postgres',
-            password: process.env.DB_PASSWORD || 'postgres',
-            database: process.env.DB_NAME || 'control_pagos',
+            // Demo / local: SQLite sin configurar Postgres (datos efímeros en Render)
+            type: 'better-sqlite3',
+            database: join(process.cwd(), 'database.sqlite'),
             entities: [__dirname + '/**/*.entity{.ts,.js}'],
             synchronize: true,
-            ssl: process.env.DB_SSL === 'true' ? { rejectUnauthorized: false } : false,
           },
     ),
     AuditModule, // Global module, register first

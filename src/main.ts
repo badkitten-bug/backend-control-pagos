@@ -3,9 +3,8 @@ import { AppModule } from './app.module';
 import { ValidationPipe } from '@nestjs/common';
 
 async function bootstrap() {
-  // Log de conexión BD (en Render debe verse "DATABASE_URL: sí" para usar pooler IPv4)
-  const usePooler = !!process.env.DATABASE_URL;
-  console.log(`[DB] ${usePooler ? 'DATABASE_URL definida (pooler 6543, IPv4)' : 'DATABASE_URL no definida - usando DB_HOST/5432 (puede fallar ENETUNREACH en Render)'}`);
+  const hasDbUrl = !!process.env.DATABASE_URL;
+  console.log(`[DB] ${hasDbUrl ? 'Postgres (DATABASE_URL)' : 'SQLite (demo - datos efímeros en cada deploy)'}`);
 
   const app = await NestFactory.create(AppModule);
   
