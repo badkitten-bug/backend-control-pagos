@@ -34,7 +34,7 @@ import { SubcontractsModule } from './subcontracts/subcontracts.module';
             url: process.env.DATABASE_URL,
             entities: [__dirname + '/**/*.entity{.ts,.js}'],
             synchronize: true,
-            ssl: { rejectUnauthorized: false },
+            ...(process.env.DB_SSL === 'true' ? { ssl: { rejectUnauthorized: false } } : {}),
           }
         : {
             // Demo / local: SQLite sin configurar Postgres (datos efímeros en Render)
