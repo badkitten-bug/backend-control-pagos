@@ -2,13 +2,17 @@ import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { ValidationPipe } from '@nestjs/common';
 import { UsersService } from './users/users.service';
+import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 
 const DEMO_EMAIL = 'demo@demo.com';
 const DEMO_PASSWORD = 'demo123';
 
 async function bootstrap() {
-  const hasDbUrl = !!process.env.DATABASE_URL;
-  console.log(`[DB] ${hasDbUrl ? 'Postgres (DATABASE_URL)' : 'SQLite (demo - datos efímeros en cada deploy)'}`);
+  const hasDbUrl = !!process.env.DATABASE_URL && 
+    (process.env.DATABASE_URL.startsWith('postgres') || process.env.DATABASE_URL.startsWith('postgresql')) &&
+    !process.env.DATABASE_URL.includes('database.sqlite');
+  
+  console.log(`[DB] Using ${hasDbUrl ? 'PostgreSQL' : 'SQLite'}`);
 
   const app = await NestFactory.create(AppModule);
 
@@ -26,12 +30,27 @@ async function bootstrap() {
     }
   }
 
+  // Swagger configuration
+  const config = new DocumentBuilder()
+    .setTitle('Control de Pagos Vehiculares API')
+    .setDescription('API para la gestión de vehículos, contratos y cobranzas')
+    .setVersion('1.0')
+    .addBearerAuth()
+    .build();
+  const document = SwaggerModule.createDocument(app, config);
+  SwaggerModule.setup('api/docs', app, document, {
+    swaggerOptions: {
+      persistAuthorization: true,
+    },
+  });
+
   // Global prefix for all routes
   app.setGlobalPrefix('api');
 
   // Enable CORS (frontend en Vercel + local)
   const allowedOrigins = [
     'http://localhost:5173',
+    'http://localhost:5174',
     'http://localhost:3000',
     'https://frontend-control-pagos.vercel.app',
     'http://161.132.40.223',
@@ -39,10 +58,7 @@ async function bootstrap() {
     'https://sv-gGbrDIE0BxoM6dAKh5SW.cloud.elastika.pe',
   ];
   app.enableCors({
-    origin: (origin, callback) => {
-      const allowed = !origin || allowedOrigins.includes(origin) || origin.endsWith('.vercel.app');
-      callback(null, allowed ? origin || true : false);
-    },
+    origin: true,
     credentials: true,
   });
 

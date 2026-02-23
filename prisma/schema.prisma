@@ -1,0 +1,181 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+model audit_logs {
+  id              Int      @id @default(autoincrement())
+  entidad         String
+  entidadId       Int
+  accion          String
+  usuarioId       Int
+  usuarioNombre   String
+  datosAnteriores String?
+  datosNuevos     String?
+  descripcion     String?
+  createdAt       DateTime @default(now())
+}
+
+model clients {
+  id                   Int       @id @default(autoincrement())
+  dni                  String    @unique(map: "sqlite_autoindex_clients_1")
+  nombres              String
+  apellidos            String
+  telefono             String?
+  telefonoSecundario   String?
+  email                String?
+  direccion            String?
+  fechaNacimiento      DateTime?
+  ocupacion            String?
+  observaciones        String?
+  activo               Boolean   @default(true)
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @default(now())
+  numeroBrevete        String?
+  fechaVigenciaBrevete DateTime?
+}
+
+model contracts {
+  id                    Int                 @id @default(autoincrement())
+  vehicleId             Int
+  fechaInicio           DateTime
+  precio                Decimal
+  pagoInicial           Decimal
+  numeroCuotas          Int
+  frecuencia            String
+  estado                String              @default("Borrador")
+  clienteNombre         String?
+  clienteDni            String?
+  clienteTelefono       String?
+  clienteDireccion      String?
+  observaciones         String?
+  pagoInicialRegistrado Boolean             @default(false)
+  createdAt             DateTime            @default(now())
+  updatedAt             DateTime            @default(now())
+  comisionPorcentaje    Decimal             @default(0)
+  moraPorcentaje        Decimal             @default(0)
+  vehicles              vehicles            @relation(fields: [vehicleId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  payment_schedules     payment_schedules[]
+  payments              payments[]
+  subcontracts          subcontracts[]
+}
+
+model payment_schedules {
+  id               Int        @id @default(autoincrement())
+  contractId       Int
+  numeroCuota      Int
+  fechaVencimiento DateTime
+  capital          Decimal
+  total            Decimal
+  montoPagado      Decimal    @default(0)
+  saldo            Decimal
+  estado           String     @default("Pendiente")
+  createdAt        DateTime   @default(now())
+  comision         Decimal    @default(0)
+  montoSubcontrato Decimal    @default(0)
+  subcontractIds   String?
+  contracts        contracts  @relation(fields: [contractId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  payments         payments[]
+}
+
+model payments {
+  id                Int                @id @default(autoincrement())
+  contractId        Int
+  scheduleId        Int?
+  tipo              String
+  importe           Decimal
+  fechaPago         DateTime
+  medioPago         String
+  numeroOperacion   String?
+  voucher           String?
+  notas             String?
+  usuarioId         Int
+  usuarioNombre     String
+  createdAt         DateTime           @default(now())
+  cuentaDeposito    String?
+  contracts         contracts          @relation(fields: [contractId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  payment_schedules payment_schedules? @relation(fields: [scheduleId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+model settings {
+  id          Int      @id @default(autoincrement())
+  clave       String   @unique(map: "sqlite_autoindex_settings_1")
+  valor       String?
+  tipo        String   @default("string")
+  descripcion String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @default(now())
+}
+
+model subcontract_schedules {
+  id               Int          @id @default(autoincrement())
+  subcontractId    Int
+  numeroCuota      Int
+  fechaVencimiento DateTime
+  monto            Decimal
+  montoPagado      Decimal      @default(0)
+  saldo            Decimal
+  estado           String       @default("Pendiente")
+  createdAt        DateTime     @default(now())
+  subcontracts     subcontracts @relation(fields: [subcontractId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+model subcontracts {
+  id                    Int                     @id @default(autoincrement())
+  parentContractId      Int
+  tipo                  String
+  modalidad             String
+  monto                 Decimal
+  numeroCuotas          Int?
+  frecuencia            String?
+  fechaInicio           DateTime
+  descripcion           String?
+  estado                String                  @default("Vigente")
+  createdAt             DateTime                @default(now())
+  updatedAt             DateTime                @default(now())
+  subcontract_schedules subcontract_schedules[]
+  contracts             contracts               @relation(fields: [parentContractId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+model users {
+  id        Int      @id @default(autoincrement())
+  email     String   @unique(map: "sqlite_autoindex_users_1")
+  password  String
+  nombre    String
+  apellido  String?
+  rol       String   @default("user")
+  activo    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now())
+}
+
+model vehicle_mileage {
+  id                  Int      @id @default(autoincrement())
+  vehicleId           Int
+  kilometrajeAnterior Int
+  kilometrajeNuevo    Int
+  usuarioId           Int
+  usuarioNombre       String
+  observacion         String?
+  fechaRegistro       DateTime @default(now())
+  vehicles            vehicles @relation(fields: [vehicleId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+model vehicles {
+  id              Int               @id @default(autoincrement())
+  placa           String            @unique(map: "sqlite_autoindex_vehicles_1")
+  marca           String
+  modelo          String
+  anio            Int
+  color           String?
+  kilometraje     Int               @default(0)
+  estado          String            @default("Disponible")
+  observaciones   String?
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @default(now())
+  contracts       contracts[]
+  vehicle_mileage vehicle_mileage[]
+}

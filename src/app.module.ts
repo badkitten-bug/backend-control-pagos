@@ -27,7 +27,8 @@ import { SubcontractsModule } from './subcontracts/subcontracts.module';
       serveRoot: '/uploads',
     }),
     TypeOrmModule.forRoot(
-      process.env.DATABASE_URL
+      process.env.DB_TYPE === 'postgres' || 
+      (process.env.DATABASE_URL && (process.env.DATABASE_URL.startsWith('postgres') || process.env.DATABASE_URL.startsWith('postgresql')) && !process.env.DATABASE_URL.includes('database.sqlite'))
         ? {
             type: 'postgres',
             url: process.env.DATABASE_URL,

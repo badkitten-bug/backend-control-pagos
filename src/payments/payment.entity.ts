@@ -59,6 +59,9 @@ export class Payment {
   numeroOperacion: string;
 
   @Column({ nullable: true })
+  cuentaDeposito: string;
+
+  @Column({ nullable: true })
   voucher: string;
 
   @Column({ nullable: true })

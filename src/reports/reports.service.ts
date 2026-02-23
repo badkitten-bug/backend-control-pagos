@@ -130,8 +130,10 @@ export class ReportsService {
     }
 
     const contracts = await queryBuilder.getMany();
-
     const reportItems: ArrearsReportItem[] = [];
+
+    // Pre-fetch last payments for all these contracts to avoid N+1
+    const lastPayments = await this.getLastPayments(contracts.map(c => c.id));
 
     for (const contract of contracts) {
       const overdueSchedules = contract.cronograma.filter(
@@ -158,10 +160,7 @@ export class ReportsService {
         new Date(oldestOverdue.fechaVencimiento),
       );
 
-      const lastPayment = await this.paymentRepository.findOne({
-        where: { contractId: contract.id },
-        order: { fechaPago: 'DESC' },
-      });
+      const lastPayment = lastPayments[contract.id];
 
       reportItems.push({
         placa: contract.vehicle.placa,
@@ -273,6 +272,39 @@ export class ReportsService {
     return results;
   }
 
+  /**
+   * Helper to fetch last payments for multiple contracts efficiently
+   * Eliminates N+1 query patterns in reports
+   */
+  private async getLastPayments(contractIds: number[]): Promise<Record<number, Payment>> {
+    if (contractIds.length === 0) return {};
+    
+    // Subquery to find the max date for each contract
+    const lastPaymentDates = await this.paymentRepository
+      .createQueryBuilder('payment')
+      .select('payment.contractId', 'contractId')
+      .addSelect('MAX(payment.fechaPago)', 'maxDate')
+      .where('payment.contractId IN (:...contractIds)', { contractIds })
+      .groupBy('payment.contractId')
+      .getRawMany();
+
+    if (lastPaymentDates.length === 0) return {};
+
+    // Fetch the actual payment records for those dates to get the importes
+    // Note: If a contract has two payments on the same literal maxDate, 
+    // this might return multiple, but reduce() will pick the last one.
+    const payments = await this.paymentRepository
+      .createQueryBuilder('payment')
+      .where('payment.contractId IN (:...cIds)', { cIds: lastPaymentDates.map(l => l.contractId) })
+      .andWhere('payment.fechaPago IN (:...dates)', { dates: lastPaymentDates.map(l => l.maxDate) })
+      .getMany();
+
+    return payments.reduce((acc, p) => {
+      acc[p.contractId] = p;
+      return acc;
+    }, {} as Record<number, Payment>);
+  }
+
   async getTrafficLightReport(filters?: {
     semaforo?: SemaforoStatus;
     placa?: string;
@@ -301,6 +333,9 @@ export class ReportsService {
 
     const contracts = await queryBuilder.getMany();
     const items: TrafficLightItem[] = [];
+
+    // Pre-fetch last payments
+    const lastPayments = await this.getLastPayments(contracts.map(c => c.id));
 
     for (const contract of contracts) {
       // Find overdue schedules
@@ -342,11 +377,7 @@ export class ReportsService {
         continue;
       }
 
-      // Get last payment
-      const lastPayment = await this.paymentRepository.findOne({
-        where: { contractId: contract.id },
-        order: { fechaPago: 'DESC' },
-      });
+      const lastPayment = lastPayments[contract.id];
 
       items.push({
         vehicleId: contract.vehicle.id,
@@ -491,100 +522,103 @@ export class ReportsService {
     const today = startOfDay(new Date());
     const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
     
-    // Get vehicle counts
-    const totalVehiculos = await this.vehicleRepository.count();
-    const vehiculosDisponibles = await this.vehicleRepository.count({
-      where: { estado: 'Disponible' as any },
-    });
+    // 1. Vehicle counts (Parallel)
+    const [totalVehiculos, vehiculosDisponibles] = await Promise.all([
+      this.vehicleRepository.count(),
+      this.vehicleRepository.count({ where: { estado: 'Disponible' as any } }),
+    ]);
 
-    // Get active contracts count
+    // 2. Active contracts count
     const contratosVigentes = await this.contractRepository.count({
       where: { estado: ContractStatus.VIGENTE },
     });
 
-    // Get payments this month
-    const paymentsThisMonth = await this.paymentRepository
+    // 3. Total collected this month (DB Sum)
+    const { totalCobradoMes } = await this.paymentRepository
       .createQueryBuilder('payment')
+      .select('SUM(payment.importe)', 'totalCobradoMes')
       .where('payment.fechaPago >= :startOfMonth', { startOfMonth })
-      .getMany();
-    
-    const totalCobradoMes = paymentsThisMonth.reduce(
-      (sum, p) => sum + parseFloat(p.importe.toString()),
-      0,
-    );
+      .getRawOne();
 
-    // Get all pending schedules for total pending
-    const pendingSchedules = await this.scheduleRepository.find({
-      where: { estado: ScheduleStatus.PENDIENTE },
-    });
-    const overdueSchedules = await this.scheduleRepository
+    // 4. Total pending amount (DB Sum)
+    const { totalPendiente } = await this.scheduleRepository
       .createQueryBuilder('schedule')
-      .leftJoinAndSelect('schedule.contract', 'contract')
+      .select('SUM(schedule.saldo)', 'totalPendiente')
+      .where('schedule.estado = :pending', { pending: ScheduleStatus.PENDIENTE })
+      .getRawOne();
+
+    // 5. Total Mora Acumulada (DB Aggregation with joins)
+    // This is more efficient than fetching all and looping
+    const overdueStats = await this.scheduleRepository
+      .createQueryBuilder('schedule')
+      .leftJoin('schedule.contract', 'contract')
+      .select('schedule.saldo', 'saldo')
+      .addSelect('schedule.fechaVencimiento', 'fechaVencimiento')
+      .addSelect('contract.moraPorcentaje', 'moraPorcentaje')
       .where('schedule.estado != :paid', { paid: ScheduleStatus.PAGADA })
       .andWhere('schedule.fechaVencimiento < :today', { today })
-      .getMany();
+      .getRawMany();
 
-    const totalPendiente = pendingSchedules.reduce(
-      (sum, s) => sum + parseFloat(s.saldo.toString()),
-      0,
-    );
+    const totalMoraAcumulada = overdueStats.reduce((sum, s) => {
+      const diasAtraso = differenceInDays(today, new Date(s.fechaVencimiento));
+      const mora = (parseFloat(s.saldo) * parseFloat(s.moraPorcentaje || 0) / 100) * diasAtraso;
+      return sum + mora;
+    }, 0);
 
-    // Calculate mora for overdue schedules
-    let totalMoraAcumulada = 0;
-    for (const schedule of overdueSchedules) {
-      const diasAtraso = differenceInDays(today, new Date(schedule.fechaVencimiento));
-      const saldo = parseFloat(schedule.saldo.toString());
-      const moraPct = parseFloat((schedule.contract?.moraPorcentaje || 0).toString());
-      if (moraPct > 0 && diasAtraso > 0) {
-        totalMoraAcumulada += (saldo * moraPct / 100) * diasAtraso;
-      }
-    }
-
-    // Get semaforo distribution
+    // 6. Semaforo distribution (already uses report item logic)
     const trafficLight = await this.getTrafficLightReport();
     const semaforo = {
-      verde: trafficLight.filter(t => t.semaforo === 'verde').length,
-      ambar: trafficLight.filter(t => t.semaforo === 'ambar').length,
-      rojo: trafficLight.filter(t => t.semaforo === 'rojo').length,
+      verde: 0,
+      ambar: 0,
+      rojo: 0
     };
+    trafficLight.forEach(t => {
+      if (semaforo[t.semaforo] !== undefined) semaforo[t.semaforo]++;
+    });
 
-    // Get last 6 months collections
+    // 7. Last 6 months collections (Optimized loop)
     const cobranzasMensuales: { mes: string; cobrado: number; pendiente: number }[] = [];
+    const months = [];
     for (let i = 5; i >= 0; i--) {
-      const monthStart = new Date(today.getFullYear(), today.getMonth() - i, 1);
-      const monthEnd = new Date(today.getFullYear(), today.getMonth() - i + 1, 0);
-      const monthName = monthStart.toLocaleString('es-PE', { month: 'short' });
-
-      const payments = await this.paymentRepository
-        .createQueryBuilder('payment')
-        .where('payment.fechaPago >= :start', { start: monthStart })
-        .andWhere('payment.fechaPago <= :end', { end: monthEnd })
-        .getMany();
-
-      const cobrado = payments.reduce((sum, p) => sum + parseFloat(p.importe.toString()), 0);
-
-      const schedulesInMonth = await this.scheduleRepository
-        .createQueryBuilder('schedule')
-        .where('schedule.fechaVencimiento >= :start', { start: monthStart })
-        .andWhere('schedule.fechaVencimiento <= :end', { end: monthEnd })
-        .getMany();
-
-      const pendiente = schedulesInMonth
-        .filter(s => s.estado !== ScheduleStatus.PAGADA)
-        .reduce((sum, s) => sum + parseFloat(s.saldo.toString()), 0);
-
-      cobranzasMensuales.push({ mes: monthName, cobrado, pendiente });
+      const date = new Date(today.getFullYear(), today.getMonth() - i, 1);
+      months.push({
+        start: date,
+        end: new Date(date.getFullYear(), date.getMonth() + 1, 0),
+        name: date.toLocaleString('es-PE', { month: 'short' })
+      });
     }
+
+    // Run monthly data queries in parallel
+    const monthlyData = await Promise.all(months.map(async (month) => {
+      const [{ cobrado }, { pendiente }] = await Promise.all([
+        this.paymentRepository
+          .createQueryBuilder('payment')
+          .select('SUM(payment.importe)', 'cobrado')
+          .where('payment.fechaPago >= :start AND payment.fechaPago <= :end', { start: month.start, end: month.end })
+          .getRawOne(),
+        this.scheduleRepository
+          .createQueryBuilder('schedule')
+          .select('SUM(schedule.saldo)', 'pendiente')
+          .where('schedule.fechaVencimiento >= :start AND schedule.fechaVencimiento <= :end', { start: month.start, end: month.end })
+          .andWhere('schedule.estado != :paid', { paid: ScheduleStatus.PAGADA })
+          .getRawOne()
+      ]);
+      return { 
+        mes: month.name, 
+        cobrado: parseFloat(cobrado || 0), 
+        pendiente: parseFloat(pendiente || 0) 
+      };
+    }));
 
     return {
       totalVehiculos,
       vehiculosDisponibles,
       contratosVigentes,
-      totalCobradoMes,
-      totalPendiente,
+      totalCobradoMes: parseFloat(totalCobradoMes || 0),
+      totalPendiente: parseFloat(totalPendiente || 0),
       totalMoraAcumulada: Math.round(totalMoraAcumulada * 100) / 100,
       semaforo,
-      cobranzasMensuales,
+      cobranzasMensuales: monthlyData,
     };
   }
 }

@@ -103,3 +103,5 @@ database.sqlite-journal
 
 # Environment variables
 .env
+
+/generated/prisma

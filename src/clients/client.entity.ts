@@ -21,6 +21,12 @@ export class Client {
   telefonoSecundario: string;
 
   @Column({ nullable: true })
+  numeroBrevete: string;
+
+  @Column({ type: 'date', nullable: true })
+  fechaVigenciaBrevete: Date;
+
+  @Column({ nullable: true })
   email: string;
 
   @Column({ nullable: true })

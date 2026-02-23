@@ -35,7 +35,6 @@ export class AuthService {
       dto.nombre,
       dto.apellido,
     );
-
     return this.generateAuthResponse(user);
   }
 
