@@ -578,7 +578,7 @@ export class ReportsService {
 
     // 7. Last 6 months collections (Optimized loop)
     const cobranzasMensuales: { mes: string; cobrado: number; pendiente: number }[] = [];
-    const months = [];
+    const months: { start: Date; end: Date; name: string }[] = [];
     for (let i = 5; i >= 0; i--) {
       const date = new Date(today.getFullYear(), today.getMonth() - i, 1);
       months.push({
