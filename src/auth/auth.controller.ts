@@ -1,13 +1,24 @@
-import { Controller, Post, Body, Get, UseGuards, HttpCode } from '@nestjs/common';
+import { Controller, Post, Body, Get, UseGuards, HttpCode, Param, ParseIntPipe, Patch } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { RegisterDto, LoginDto } from './dto/auth.dto';
 import { Public } from './public.decorator';
 import { CurrentUser } from './current-user.decorator';
 import { User } from '../users/user.entity';
+import { UsersService } from '../users/users.service';
+import { IsString, MinLength } from 'class-validator';
+
+class ResetPasswordDto {
+  @IsString()
+  @MinLength(6, { message: 'La contraseña debe tener al menos 6 caracteres' })
+  newPassword: string;
+}
 
 @Controller('auth')
 export class AuthController {
-  constructor(private authService: AuthService) {}
+  constructor(
+    private authService: AuthService,
+    private usersService: UsersService,
+  ) {}
 
   @Public()
   @Post('register')
@@ -31,5 +42,23 @@ export class AuthController {
       apellido: user.apellido,
       rol: user.rol,
     };
+  }
+
+  @Get('users')
+  async getUsers() {
+    return this.usersService.findAll();
+  }
+
+  @Patch('users/:id/toggle-active')
+  async toggleActive(@Param('id', ParseIntPipe) id: number) {
+    return this.usersService.toggleActive(id);
+  }
+
+  @Patch('users/:id/reset-password')
+  async resetPassword(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: ResetPasswordDto,
+  ) {
+    return this.usersService.resetPassword(id, dto.newPassword);
   }
 }

@@ -28,14 +28,14 @@ export class AuthService {
     private jwtService: JwtService,
   ) {}
 
-  async register(dto: RegisterDto): Promise<AuthResponse> {
-    const user = await this.usersService.create(
+  async register(dto: RegisterDto): Promise<{ message: string }> {
+    await this.usersService.create(
       dto.email,
       dto.password,
       dto.nombre,
       dto.apellido,
     );
-    return this.generateAuthResponse(user);
+    return { message: 'Cuenta creada exitosamente. Su cuenta está pendiente de aprobación por un administrador.' };
   }
 
   async login(dto: LoginDto): Promise<AuthResponse> {

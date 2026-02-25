@@ -1,4 +1,4 @@
-import { Injectable, ConflictException } from '@nestjs/common';
+import { Injectable, ConflictException, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { User } from './user.entity';
@@ -49,5 +49,25 @@ export class UsersService {
     return this.usersRepository.find({
       select: ['id', 'email', 'nombre', 'apellido', 'rol', 'activo', 'createdAt'],
     });
+  }
+
+  async resetPassword(userId: number, newPassword: string): Promise<{ message: string }> {
+    const user = await this.findById(userId);
+    if (!user) {
+      throw new NotFoundException('Usuario no encontrado');
+    }
+    user.password = await bcrypt.hash(newPassword, 10);
+    await this.usersRepository.save(user);
+    return { message: 'Contraseña actualizada exitosamente' };
+  }
+
+  async toggleActive(userId: number): Promise<User> {
+    const user = await this.findById(userId);
+    if (!user) {
+      throw new NotFoundException('Usuario no encontrado');
+    }
+    user.activo = !user.activo;
+    await this.usersRepository.save(user);
+    return user;
   }
 }

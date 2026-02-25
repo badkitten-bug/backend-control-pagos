@@ -31,7 +31,7 @@ export class User {
   @Column({ type: 'text', default: UserRole.USER })
   rol: UserRole;
 
-  @Column({ default: true })
+  @Column({ default: false })
   activo: boolean;
 
   @CreateDateColumn()
