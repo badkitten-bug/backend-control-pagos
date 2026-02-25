@@ -9,6 +9,7 @@ import {
 } from 'class-validator';
 import { Transform } from 'class-transformer';
 import { PaymentFrequency, ContractStatus } from '../contract.entity';
+import { ApiPropertyOptional } from '@nestjs/swagger';
 
 export class CreateContractDto {
   @IsNumber()
@@ -27,7 +28,7 @@ export class CreateContractDto {
 
   @IsNumber()
   @IsPositive()
-  numeroCuotas: number;
+  meses: number;
 
   @IsEnum(PaymentFrequency, { message: 'Frecuencia inválida' })
   frecuencia: PaymentFrequency;
@@ -64,6 +65,12 @@ export class CreateContractDto {
 }
 
 export class UpdateContractDto {
+  @ApiPropertyOptional({ description: 'Modificar pago inicial (solo en Borrador)' })
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  pagoInicial?: number;
+
   @IsOptional()
   @IsString()
   clienteNombre?: string;

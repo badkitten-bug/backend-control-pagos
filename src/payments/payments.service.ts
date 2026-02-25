@@ -35,6 +35,9 @@ export class PaymentsService {
 
     // If it's an initial payment, mark contract
     if (tipoStr === 'Pago Inicial') {
+      if (contract.pagoInicialRegistrado) {
+        throw new BadRequestException('El pago inicial ya fue registrado para este contrato');
+      }
       console.log('>>> Marking initial payment');
       await this.contractsService.markInitialPaymentRegistered(dto.contractId);
     }

@@ -47,6 +47,9 @@ export class Contract {
   @Column({ type: 'decimal', precision: 10, scale: 2 })
   pagoInicial: number;
 
+  @Column({ type: 'integer', default: 0 })
+  meses: number;
+
   @Column({ type: 'integer' })
   numeroCuotas: number;
 

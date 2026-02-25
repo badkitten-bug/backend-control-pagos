@@ -5,7 +5,7 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, Like, FindOptionsWhere } from 'typeorm';
-import { Contract, ContractStatus } from './contract.entity';
+import { Contract, ContractStatus, PaymentFrequency } from './contract.entity';
 import { CreateContractDto, UpdateContractDto, SearchContractsDto } from './dto/contract.dto';
 import { VehiclesService } from '../vehicles/vehicles.service';
 import { PaymentSchedulesService } from '../payment-schedules/payment-schedules.service';
@@ -19,6 +19,28 @@ export class ContractsService {
     private vehiclesService: VehiclesService,
     private schedulesService: PaymentSchedulesService,
   ) {}
+
+  /**
+   * Calculate total number of installments based on months and payment frequency.
+   * - Daily: 26 working days/month (Mon-Sat)
+   * - Weekly: 4 weeks/month
+   * - Biweekly: 2/month
+   * - Monthly: 1/month
+   */
+  private calculateTotalCuotas(meses: number, frecuencia: PaymentFrequency): number {
+    switch (frecuencia) {
+      case PaymentFrequency.DIARIO:
+        return meses * 26;
+      case PaymentFrequency.SEMANAL:
+        return meses * 4;
+      case PaymentFrequency.QUINCENAL:
+        return meses * 2;
+      case PaymentFrequency.MENSUAL:
+        return meses;
+      default:
+        return meses;
+    }
+  }
 
   async create(dto: CreateContractDto): Promise<Contract> {
     // Validate vehicle is available
@@ -37,14 +59,18 @@ export class ContractsService {
       );
     }
 
-    if (dto.numeroCuotas <= 0) {
+    if (dto.meses <= 0) {
       throw new BadRequestException(
-        'El número de cuotas debe ser mayor a 0',
+        'El número de meses debe ser mayor a 0',
       );
     }
 
+    // Calculate total cuotas from meses + frecuencia
+    const numeroCuotas = this.calculateTotalCuotas(dto.meses, dto.frecuencia);
+
     const contract = this.contractRepository.create({
       ...dto,
+      numeroCuotas,
       estado: ContractStatus.BORRADOR,
     });
 
@@ -125,8 +151,19 @@ export class ContractsService {
       );
     }
 
+    const pagoInicialChanged = dto.pagoInicial !== undefined &&
+      parseFloat(dto.pagoInicial.toString()) !== parseFloat(contract.pagoInicial.toString());
+
     Object.assign(contract, dto);
-    return this.contractRepository.save(contract);
+    const savedContract = await this.contractRepository.save(contract);
+
+    // Regenerate schedule if pago inicial changed
+    if (pagoInicialChanged) {
+      await this.schedulesService.deleteByContract(contract.id);
+      await this.schedulesService.generateSchedule(savedContract);
+    }
+
+    return this.findById(savedContract.id);
   }
 
   async activate(id: number): Promise<Contract> {

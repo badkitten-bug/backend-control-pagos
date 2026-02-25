@@ -238,4 +238,11 @@ export class PaymentSchedulesService {
   async saveSchedules(schedules: PaymentSchedule[]): Promise<PaymentSchedule[]> {
     return this.scheduleRepository.save(schedules);
   }
+
+  /**
+   * Delete all schedules for a contract (used when regenerating)
+   */
+  async deleteByContract(contractId: number): Promise<void> {
+    await this.scheduleRepository.delete({ contractId });
+  }
 }
