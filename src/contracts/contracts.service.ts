@@ -59,6 +59,20 @@ export class ContractsService {
       );
     }
 
+    // Check if there is already an active draft for this vehicle
+    const existingDraft = await this.contractRepository.findOne({
+      where: {
+        vehicleId: dto.vehicleId,
+        estado: ContractStatus.BORRADOR,
+      },
+    });
+
+    if (existingDraft) {
+      throw new BadRequestException(
+        'El vehículo ya tiene un contrato en estado Borrador',
+      );
+    }
+
     if (dto.meses <= 0) {
       throw new BadRequestException(
         'El número de meses debe ser mayor a 0',
