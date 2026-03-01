@@ -19,6 +19,25 @@ export class PaymentsService {
   async create(dto: CreatePaymentDto, user: User): Promise<Payment> {
     const contract = await this.contractsService.findById(dto.contractId);
 
+    // Prevent double submission idempotency check
+    // Look for same payment made in last 5 seconds
+    const fiveSecondsAgo = new Date();
+    fiveSecondsAgo.setSeconds(fiveSecondsAgo.getSeconds() - 5);
+    
+    const recentDuplicate = await this.paymentRepository.findOne({
+      where: {
+        contractId: dto.contractId,
+        tipo: dto.tipo,
+        importe: dto.importe,
+        usuarioId: user.id,
+        createdAt: MoreThanOrEqual(fiveSecondsAgo)
+      }
+    });
+
+    if (recentDuplicate) {
+       throw new BadRequestException('Un pago idéntico fue registrado hace unos segundos. Por favor, actualice la página.');
+    }
+
     const tipoStr = String(dto.tipo);
     console.log('=== PAYMENT CREATE ===');
     console.log('Tipo:', tipoStr);
