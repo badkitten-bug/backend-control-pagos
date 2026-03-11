@@ -34,7 +34,7 @@ export class Vehicle {
   @Column({ nullable: true })
   color: string;
 
-  @Column({ type: 'integer', default: 0 })
+  @Column({ type: 'integer', nullable: true, default: 0 })
   kilometraje: number;
 
   @Column({ type: 'text', default: VehicleStatus.DISPONIBLE })

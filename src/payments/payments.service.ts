@@ -6,6 +6,7 @@ import { CreatePaymentDto, SearchPaymentsDto } from './dto/payment.dto';
 import { ContractsService } from '../contracts/contracts.service';
 import { PaymentSchedulesService } from '../payment-schedules/payment-schedules.service';
 import { User } from '../users/user.entity';
+import { ContractStatus } from '../contracts/contract.entity';
 
 @Injectable()
 export class PaymentsService {
@@ -96,6 +97,11 @@ export class PaymentsService {
     if (fechaHasta) {
       queryBuilder.andWhere('payment.fechaPago <= :fechaHasta', { fechaHasta });
     }
+
+    // Excluir pagos de contratos anulados en el listado/caja
+    queryBuilder.andWhere('contract.estado != :estadoAnulado', {
+      estadoAnulado: ContractStatus.ANULADO,
+    });
 
     const total = await queryBuilder.getCount();
     const items = await queryBuilder
