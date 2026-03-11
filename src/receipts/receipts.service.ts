@@ -12,7 +12,7 @@ export class ReceiptsService {
 
   async generateReceipt(payment: Payment, contract: Contract): Promise<Buffer> {
     const company = await this.settingsService.getCompanyInfo();
-    
+
     return new Promise((resolve, reject) => {
       const doc = new PDFDocument({ size: 'A5', margin: 40 });
       const chunks: Buffer[] = [];
@@ -22,12 +22,16 @@ export class ReceiptsService {
       doc.on('error', reject);
 
       // Header
-      doc.fontSize(16).font('Helvetica-Bold')
-         .text(company.nombre || 'Control de Pagos', { align: 'center' });
-      
+      doc
+        .fontSize(16)
+        .font('Helvetica-Bold')
+        .text(company.nombre || 'Control de Pagos', { align: 'center' });
+
       if (company.ruc) {
-        doc.fontSize(10).font('Helvetica')
-           .text(`RUC: ${company.ruc}`, { align: 'center' });
+        doc
+          .fontSize(10)
+          .font('Helvetica')
+          .text(`RUC: ${company.ruc}`, { align: 'center' });
       }
       if (company.direccion) {
         doc.text(company.direccion, { align: 'center' });
@@ -39,10 +43,14 @@ export class ReceiptsService {
       doc.moveDown(2);
 
       // Receipt Title
-      doc.fontSize(14).font('Helvetica-Bold')
-         .text('RECIBO DE PAGO', { align: 'center' });
-      doc.fontSize(10).font('Helvetica')
-         .text(`N° ${String(payment.id).padStart(6, '0')}`, { align: 'center' });
+      doc
+        .fontSize(14)
+        .font('Helvetica-Bold')
+        .text('RECIBO DE PAGO', { align: 'center' });
+      doc
+        .fontSize(10)
+        .font('Helvetica')
+        .text(`N° ${String(payment.id).padStart(6, '0')}`, { align: 'center' });
 
       doc.moveDown(2);
 
@@ -57,8 +65,11 @@ export class ReceiptsService {
 
       doc.font('Helvetica-Bold').text('Fecha:', leftCol, y);
       doc.font('Helvetica').text(
-        format(new Date(payment.fechaPago), "dd 'de' MMMM 'de' yyyy", { locale: es }),
-        rightCol, y
+        format(new Date(payment.fechaPago), "dd 'de' MMMM 'de' yyyy", {
+          locale: es,
+        }),
+        rightCol,
+        y,
       );
 
       y += 20;
@@ -71,12 +82,15 @@ export class ReceiptsService {
 
       y += 20;
       doc.font('Helvetica-Bold').text('Vehículo:', leftCol, y);
-      doc.font('Helvetica').text(
-        contract.vehicle 
-          ? `${contract.vehicle.placa} - ${contract.vehicle.marca} ${contract.vehicle.modelo}`
-          : '-',
-        rightCol, y
-      );
+      doc
+        .font('Helvetica')
+        .text(
+          contract.vehicle
+            ? `${contract.vehicle.placa} - ${contract.vehicle.marca} ${contract.vehicle.modelo}`
+            : '-',
+          rightCol,
+          y,
+        );
 
       y += 20;
       doc.font('Helvetica-Bold').text('Contrato:', leftCol, y);
@@ -103,22 +117,30 @@ export class ReceiptsService {
       doc.moveDown();
 
       // Amount
-      doc.fontSize(14).font('Helvetica-Bold')
-         .text('IMPORTE: S/ ' + parseFloat(payment.importe.toString()).toFixed(2), { align: 'center' });
+      doc
+        .fontSize(14)
+        .font('Helvetica-Bold')
+        .text(
+          'IMPORTE: S/ ' + parseFloat(payment.importe.toString()).toFixed(2),
+          { align: 'center' },
+        );
 
       doc.moveDown(2);
 
       // Footer message
       if (company.reciboMensaje) {
-        doc.fontSize(10).font('Helvetica')
-           .text(company.reciboMensaje, { align: 'center' });
+        doc
+          .fontSize(10)
+          .font('Helvetica')
+          .text(company.reciboMensaje, { align: 'center' });
       }
 
       doc.moveDown();
-      doc.fontSize(8).text(
-        `Generado el ${format(new Date(), "dd/MM/yyyy 'a las' HH:mm")}`,
-        { align: 'center' }
-      );
+      doc
+        .fontSize(8)
+        .text(`Generado el ${format(new Date(), "dd/MM/yyyy 'a las' HH:mm")}`, {
+          align: 'center',
+        });
 
       doc.end();
     });

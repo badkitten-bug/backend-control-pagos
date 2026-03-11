@@ -8,10 +8,12 @@ const DEMO_EMAIL = 'demo@demo.com';
 const DEMO_PASSWORD = 'demo123';
 
 async function bootstrap() {
-  const hasDbUrl = !!process.env.DATABASE_URL && 
-    (process.env.DATABASE_URL.startsWith('postgres') || process.env.DATABASE_URL.startsWith('postgresql')) &&
+  const hasDbUrl =
+    !!process.env.DATABASE_URL &&
+    (process.env.DATABASE_URL.startsWith('postgres') ||
+      process.env.DATABASE_URL.startsWith('postgresql')) &&
     !process.env.DATABASE_URL.includes('database.sqlite');
-  
+
   console.log(`[DB] Using ${hasDbUrl ? 'PostgreSQL' : 'SQLite'}`);
 
   const app = await NestFactory.create(AppModule);
@@ -48,15 +50,6 @@ async function bootstrap() {
   app.setGlobalPrefix('api');
 
   // Enable CORS (frontend en Vercel + local)
-  const allowedOrigins = [
-    'http://localhost:5173',
-    'http://localhost:5174',
-    'http://localhost:3000',
-    'https://frontend-control-pagos.vercel.app',
-    'http://161.132.40.223',
-    'http://sv-gGbrDIE0BxoM6dAKh5SW.cloud.elastika.pe',
-    'https://sv-gGbrDIE0BxoM6dAKh5SW.cloud.elastika.pe',
-  ];
   app.enableCors({
     origin: true,
     credentials: true,
@@ -75,4 +68,4 @@ async function bootstrap() {
   await app.listen(port, '0.0.0.0');
   console.log(`🚀 Backend running on port ${port}`);
 }
-bootstrap();
+void bootstrap();

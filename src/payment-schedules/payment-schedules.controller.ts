@@ -21,8 +21,11 @@ export class PaymentSchedulesController {
   }
 
   @Get('contract/:contractId/balance')
-  async getTotalPendingBalance(@Param('contractId', ParseIntPipe) contractId: number) {
-    const balance = await this.schedulesService.getTotalPendingBalance(contractId);
+  async getTotalPendingBalance(
+    @Param('contractId', ParseIntPipe) contractId: number,
+  ) {
+    const balance =
+      await this.schedulesService.getTotalPendingBalance(contractId);
     return { balance };
   }
 

@@ -1,8 +1,18 @@
-import { IsString, IsOptional, IsEmail, IsDateString, IsBoolean, Length } from 'class-validator';
+import {
+  IsString,
+  IsOptional,
+  IsEmail,
+  IsDateString,
+  IsBoolean,
+  Length,
+} from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class CreateClientDto {
-  @ApiProperty({ example: '12345678', description: 'Número de DNI del cliente' })
+  @ApiProperty({
+    example: '12345678',
+    description: 'Número de DNI del cliente',
+  })
   @IsString()
   @Length(8, 8, { message: 'El DNI debe tener 8 dígitos' })
   dni: string;
@@ -45,12 +55,18 @@ export class CreateClientDto {
   @IsString()
   ocupacion?: string;
 
-  @ApiPropertyOptional({ example: 'Q1234567', description: 'Número de brevete/licencia' })
+  @ApiPropertyOptional({
+    example: 'Q1234567',
+    description: 'Número de brevete/licencia',
+  })
   @IsOptional()
   @IsString()
   numeroBrevete?: string;
 
-  @ApiPropertyOptional({ example: '2030-12-31', description: 'Fecha de vigencia de la licencia' })
+  @ApiPropertyOptional({
+    example: '2030-12-31',
+    description: 'Fecha de vigencia de la licencia',
+  })
   @IsOptional()
   @IsDateString()
   fechaVigenciaBrevete?: string;

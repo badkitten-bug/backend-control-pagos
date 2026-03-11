@@ -1,8 +1,15 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, LessThan } from 'typeorm';
-import { Contract, ContractStatus, PaymentFrequency } from '../contracts/contract.entity';
-import { PaymentSchedule, ScheduleStatus } from '../payment-schedules/payment-schedule.entity';
+import { Repository } from 'typeorm';
+import {
+  Contract,
+  ContractStatus,
+  PaymentFrequency,
+} from '../contracts/contract.entity';
+import {
+  PaymentSchedule,
+  ScheduleStatus,
+} from '../payment-schedules/payment-schedule.entity';
 import { Payment } from '../payments/payment.entity';
 import { Vehicle } from '../vehicles/vehicle.entity';
 import { differenceInDays, startOfDay } from 'date-fns';
@@ -133,7 +140,7 @@ export class ReportsService {
     const reportItems: ArrearsReportItem[] = [];
 
     // Pre-fetch last payments for all these contracts to avoid N+1
-    const lastPayments = await this.getLastPayments(contracts.map(c => c.id));
+    const lastPayments = await this.getLastPayments(contracts.map((c) => c.id));
 
     for (const contract of contracts) {
       const overdueSchedules = contract.cronograma.filter(
@@ -171,7 +178,9 @@ export class ReportsService {
         maxDiasAtraso,
         ultimoPago: {
           fecha: lastPayment?.fechaPago || null,
-          importe: lastPayment ? parseFloat(lastPayment.importe.toString()) : null,
+          importe: lastPayment
+            ? parseFloat(lastPayment.importe.toString())
+            : null,
         },
         frecuencia: contract.frecuencia,
         estado: contract.estado,
@@ -212,7 +221,11 @@ export class ReportsService {
         relations: ['cronograma'],
       });
 
-      let proximaCuota: { numero: number; fechaVencimiento: Date; importe: number } | null = null;
+      let proximaCuota: {
+        numero: number;
+        fechaVencimiento: Date;
+        importe: number;
+      } | null = null;
       let deudaVencida = 0;
       let totalPagado = 0;
 
@@ -220,7 +233,11 @@ export class ReportsService {
         // Next pending schedule
         const nextSchedule = activeContract.cronograma
           .filter((s) => s.estado === ScheduleStatus.PENDIENTE)
-          .sort((a, b) => new Date(a.fechaVencimiento).getTime() - new Date(b.fechaVencimiento).getTime())[0];
+          .sort(
+            (a, b) =>
+              new Date(a.fechaVencimiento).getTime() -
+              new Date(b.fechaVencimiento).getTime(),
+          )[0];
 
         if (nextSchedule) {
           proximaCuota = {
@@ -276,9 +293,11 @@ export class ReportsService {
    * Helper to fetch last payments for multiple contracts efficiently
    * Eliminates N+1 query patterns in reports
    */
-  private async getLastPayments(contractIds: number[]): Promise<Record<number, Payment>> {
+  private async getLastPayments(
+    contractIds: number[],
+  ): Promise<Record<number, Payment>> {
     if (contractIds.length === 0) return {};
-    
+
     // Subquery to find the max date for each contract
     const lastPaymentDates = await this.paymentRepository
       .createQueryBuilder('payment')
@@ -291,18 +310,25 @@ export class ReportsService {
     if (lastPaymentDates.length === 0) return {};
 
     // Fetch the actual payment records for those dates to get the importes
-    // Note: If a contract has two payments on the same literal maxDate, 
+    // Note: If a contract has two payments on the same literal maxDate,
     // this might return multiple, but reduce() will pick the last one.
     const payments = await this.paymentRepository
       .createQueryBuilder('payment')
-      .where('payment.contractId IN (:...cIds)', { cIds: lastPaymentDates.map(l => l.contractId) })
-      .andWhere('payment.fechaPago IN (:...dates)', { dates: lastPaymentDates.map(l => l.maxDate) })
+      .where('payment.contractId IN (:...cIds)', {
+        cIds: lastPaymentDates.map((l) => l.contractId),
+      })
+      .andWhere('payment.fechaPago IN (:...dates)', {
+        dates: lastPaymentDates.map((l) => l.maxDate),
+      })
       .getMany();
 
-    return payments.reduce((acc, p) => {
-      acc[p.contractId] = p;
-      return acc;
-    }, {} as Record<number, Payment>);
+    return payments.reduce(
+      (acc, p) => {
+        acc[p.contractId] = p;
+        return acc;
+      },
+      {} as Record<number, Payment>,
+    );
   }
 
   async getTrafficLightReport(filters?: {
@@ -335,7 +361,7 @@ export class ReportsService {
     const items: TrafficLightItem[] = [];
 
     // Pre-fetch last payments
-    const lastPayments = await this.getLastPayments(contracts.map(c => c.id));
+    const lastPayments = await this.getLastPayments(contracts.map((c) => c.id));
 
     for (const contract of contracts) {
       // Find overdue schedules
@@ -359,17 +385,26 @@ export class ReportsService {
             ? s
             : oldest,
         );
-        diasAtraso = differenceInDays(today, new Date(oldestOverdue.fechaVencimiento));
+        diasAtraso = differenceInDays(
+          today,
+          new Date(oldestOverdue.fechaVencimiento),
+        );
       }
 
       // Calculate semaforo based on frequency type
       let semaforo: SemaforoStatus;
       if (contract.frecuencia === PaymentFrequency.DIARIO) {
         // Daily payments: based on days of delay
-        semaforo = diasAtraso >= 3 ? 'rojo' : diasAtraso >= 1 ? 'ambar' : 'verde';
+        semaforo =
+          diasAtraso >= 3 ? 'rojo' : diasAtraso >= 1 ? 'ambar' : 'verde';
       } else {
         // Other frequencies: based on overdue installments
-        semaforo = cuotasVencidas >= 3 ? 'rojo' : cuotasVencidas >= 1 ? 'ambar' : 'verde';
+        semaforo =
+          cuotasVencidas >= 3
+            ? 'rojo'
+            : cuotasVencidas >= 1
+              ? 'ambar'
+              : 'verde';
       }
 
       // Filter by semaforo if specified
@@ -455,7 +490,11 @@ export class ReportsService {
 
   async exportArrearsToPdf(data: ArrearsReportItem[]): Promise<Buffer> {
     return new Promise((resolve) => {
-      const doc = new PDFDocument({ margin: 30, size: 'A4', layout: 'landscape' });
+      const doc = new PDFDocument({
+        margin: 30,
+        size: 'A4',
+        layout: 'landscape',
+      });
       const chunks: Buffer[] = [];
 
       doc.on('data', (chunk) => chunks.push(chunk));
@@ -464,7 +503,9 @@ export class ReportsService {
       // Title
       doc.fontSize(18).text('Reporte de Atrasos', { align: 'center' });
       doc.moveDown();
-      doc.fontSize(10).text(`Generado: ${new Date().toLocaleDateString('es-PE')}`);
+      doc
+        .fontSize(10)
+        .text(`Generado: ${new Date().toLocaleDateString('es-PE')}`);
       doc.moveDown();
 
       // Table headers
@@ -521,7 +562,7 @@ export class ReportsService {
   async getDashboardStats(): Promise<DashboardStats> {
     const today = startOfDay(new Date());
     const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
-    
+
     // 1. Vehicle counts (Parallel)
     const [totalVehiculos, vehiculosDisponibles] = await Promise.all([
       this.vehicleRepository.count(),
@@ -544,7 +585,9 @@ export class ReportsService {
     const { totalPendiente } = await this.scheduleRepository
       .createQueryBuilder('schedule')
       .select('SUM(schedule.saldo)', 'totalPendiente')
-      .where('schedule.estado = :pending', { pending: ScheduleStatus.PENDIENTE })
+      .where('schedule.estado = :pending', {
+        pending: ScheduleStatus.PENDIENTE,
+      })
       .getRawOne();
 
     // 5. Total Mora Acumulada (DB Aggregation with joins)
@@ -561,7 +604,9 @@ export class ReportsService {
 
     const totalMoraAcumulada = overdueStats.reduce((sum, s) => {
       const diasAtraso = differenceInDays(today, new Date(s.fechaVencimiento));
-      const mora = (parseFloat(s.saldo) * parseFloat(s.moraPorcentaje || 0) / 100) * diasAtraso;
+      const mora =
+        ((parseFloat(s.saldo) * parseFloat(s.moraPorcentaje || 0)) / 100) *
+        diasAtraso;
       return sum + mora;
     }, 0);
 
@@ -570,45 +615,54 @@ export class ReportsService {
     const semaforo = {
       verde: 0,
       ambar: 0,
-      rojo: 0
+      rojo: 0,
     };
-    trafficLight.forEach(t => {
+    trafficLight.forEach((t) => {
       if (semaforo[t.semaforo] !== undefined) semaforo[t.semaforo]++;
     });
 
     // 7. Last 6 months collections (Optimized loop)
-    const cobranzasMensuales: { mes: string; cobrado: number; pendiente: number }[] = [];
     const months: { start: Date; end: Date; name: string }[] = [];
     for (let i = 5; i >= 0; i--) {
       const date = new Date(today.getFullYear(), today.getMonth() - i, 1);
       months.push({
         start: date,
         end: new Date(date.getFullYear(), date.getMonth() + 1, 0),
-        name: date.toLocaleString('es-PE', { month: 'short' })
+        name: date.toLocaleString('es-PE', { month: 'short' }),
       });
     }
 
     // Run monthly data queries in parallel
-    const monthlyData = await Promise.all(months.map(async (month) => {
-      const [{ cobrado }, { pendiente }] = await Promise.all([
-        this.paymentRepository
-          .createQueryBuilder('payment')
-          .select('SUM(payment.importe)', 'cobrado')
-          .where('payment.fechaPago >= :start AND payment.fechaPago <= :end', { start: month.start, end: month.end })
-          .getRawOne(),
-        this.scheduleRepository
-          .createQueryBuilder('schedule')
-          .select('SUM(schedule.saldo)', 'pendiente')
-          .where('schedule.fechaVencimiento >= :start AND schedule.fechaVencimiento <= :end', { start: month.start, end: month.end })
-          .andWhere('schedule.estado != :paid', { paid: ScheduleStatus.PAGADA })
-          .getRawOne()
-      ]);
-      return { 
-        mes: month.name, 
-        cobrado: parseFloat(cobrado || 0), 
-        pendiente: parseFloat(pendiente || 0) 
-      };
-    }));
+    const monthlyData = await Promise.all(
+      months.map(async (month) => {
+        const [{ cobrado }, { pendiente }] = await Promise.all([
+          this.paymentRepository
+            .createQueryBuilder('payment')
+            .select('SUM(payment.importe)', 'cobrado')
+            .where(
+              'payment.fechaPago >= :start AND payment.fechaPago <= :end',
+              { start: month.start, end: month.end },
+            )
+            .getRawOne(),
+          this.scheduleRepository
+            .createQueryBuilder('schedule')
+            .select('SUM(schedule.saldo)', 'pendiente')
+            .where(
+              'schedule.fechaVencimiento >= :start AND schedule.fechaVencimiento <= :end',
+              { start: month.start, end: month.end },
+            )
+            .andWhere('schedule.estado != :paid', {
+              paid: ScheduleStatus.PAGADA,
+            })
+            .getRawOne(),
+        ]);
+        return {
+          mes: month.name,
+          cobrado: parseFloat(cobrado || 0),
+          pendiente: parseFloat(pendiente || 0),
+        };
+      }),
+    );
 
     return {
       totalVehiculos,

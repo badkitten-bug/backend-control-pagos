@@ -15,7 +15,9 @@ describe('Clients (e2e)', () => {
 
     app = moduleFixture.createNestApplication();
     app.setGlobalPrefix('api');
-    app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
+    app.useGlobalPipes(
+      new ValidationPipe({ whitelist: true, transform: true }),
+    );
     await app.init();
 
     const testUser = {
@@ -29,7 +31,7 @@ describe('Clients (e2e)', () => {
     const regRes = await request(app.getHttpServer())
       .post('/api/auth/register')
       .send(testUser);
-    
+
     if (regRes.status !== 201) {
       throw new Error(`Registration failed: ${JSON.stringify(regRes.body)}`);
     }
@@ -38,11 +40,11 @@ describe('Clients (e2e)', () => {
     const loginRes = await request(app.getHttpServer())
       .post('/api/auth/login')
       .send({ email: testUser.email, password: testUser.password });
-    
+
     if (loginRes.status !== 200) {
       throw new Error(`Login failed: ${JSON.stringify(loginRes.body)}`);
     }
-    
+
     accessToken = loginRes.body.accessToken;
     if (!accessToken) {
       throw new Error('No access token received');
@@ -78,7 +80,7 @@ describe('Clients (e2e)', () => {
       .get('/api/clients')
       .set('Authorization', `Bearer ${accessToken}`)
       .expect(200);
-    
+
     const created = res.body.find((c: any) => c.dni === testClient.dni);
     expect(created).toBeDefined();
     expect(created.numeroBrevete).toBe(testClient.numeroBrevete);

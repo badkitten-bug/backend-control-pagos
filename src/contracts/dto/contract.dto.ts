@@ -65,7 +65,9 @@ export class CreateContractDto {
 }
 
 export class UpdateContractDto {
-  @ApiPropertyOptional({ description: 'Modificar pago inicial (solo en Borrador)' })
+  @ApiPropertyOptional({
+    description: 'Modificar pago inicial (solo en Borrador)',
+  })
   @IsOptional()
   @IsNumber()
   @Min(0)
@@ -111,15 +113,14 @@ export class SearchContractsDto {
   clienteNombre?: string;
 
   @IsOptional()
-  @Transform(({ value }) => value ? parseInt(value, 10) : 1)
+  @Transform(({ value }) => (value ? parseInt(value, 10) : 1))
   @IsNumber()
   @Min(1)
   page?: number = 1;
 
   @IsOptional()
-  @Transform(({ value }) => value ? parseInt(value, 10) : 10)
+  @Transform(({ value }) => (value ? parseInt(value, 10) : 10))
   @IsNumber()
   @Min(1)
   limit?: number = 10;
 }
-

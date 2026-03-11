@@ -27,14 +27,19 @@ import { SubcontractsModule } from './subcontracts/subcontracts.module';
       serveRoot: '/uploads',
     }),
     TypeOrmModule.forRoot(
-      process.env.DB_TYPE === 'postgres' || 
-      (process.env.DATABASE_URL && (process.env.DATABASE_URL.startsWith('postgres') || process.env.DATABASE_URL.startsWith('postgresql')) && !process.env.DATABASE_URL.includes('database.sqlite'))
+      process.env.DB_TYPE === 'postgres' ||
+        (process.env.DATABASE_URL &&
+          (process.env.DATABASE_URL.startsWith('postgres') ||
+            process.env.DATABASE_URL.startsWith('postgresql')) &&
+          !process.env.DATABASE_URL.includes('database.sqlite'))
         ? {
             type: 'postgres',
             url: process.env.DATABASE_URL,
             entities: [__dirname + '/**/*.entity{.ts,.js}'],
             synchronize: true,
-            ...(process.env.DB_SSL === 'true' ? { ssl: { rejectUnauthorized: false } } : {}),
+            ...(process.env.DB_SSL === 'true'
+              ? { ssl: { rejectUnauthorized: false } }
+              : {}),
           }
         : {
             // Demo / local: SQLite sin configurar Postgres (datos efímeros en Render)
@@ -60,4 +65,3 @@ import { SubcontractsModule } from './subcontracts/subcontracts.module';
   providers: [AppService],
 })
 export class AppModule {}
-

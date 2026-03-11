@@ -9,8 +9,6 @@ import {
   addMonths,
   endOfMonth,
   setDate,
-  isAfter,
-  isBefore,
   startOfDay,
 } from 'date-fns';
 
@@ -25,15 +23,23 @@ export class PaymentSchedulesService {
     // SQLite returns decimal columns as strings, need to parse them
     const precio = parseFloat(contract.precio.toString());
     const pagoInicial = parseFloat(contract.pagoInicial.toString());
-    const comisionPorcentaje = parseFloat((contract.comisionPorcentaje || 0).toString());
+    const comisionPorcentaje = parseFloat(
+      (contract.comisionPorcentaje || 0).toString(),
+    );
     const capitalTotal = precio - pagoInicial;
-    
+
     if (capitalTotal <= 0) {
-      throw new BadRequestException('El pago inicial no puede ser mayor o igual al precio');
+      throw new BadRequestException(
+        'El pago inicial no puede ser mayor o igual al precio',
+      );
     }
 
-    const cuotaBase = Math.floor((capitalTotal / contract.numeroCuotas) * 100) / 100;
-    const ajusteFinal = Math.round((capitalTotal - (cuotaBase * (contract.numeroCuotas - 1))) * 100) / 100;
+    const cuotaBase =
+      Math.floor((capitalTotal / contract.numeroCuotas) * 100) / 100;
+    const ajusteFinal =
+      Math.round(
+        (capitalTotal - cuotaBase * (contract.numeroCuotas - 1)) * 100,
+      ) / 100;
 
     const schedules: PaymentSchedule[] = [];
     let fechaActual = new Date(contract.fechaInicio);
@@ -42,12 +48,13 @@ export class PaymentSchedulesService {
       const fechaVencimiento = this.calculateNextDate(
         fechaActual,
         contract.frecuencia,
-        i,
       );
 
-      const capitalCuota = i === contract.numeroCuotas ? ajusteFinal : cuotaBase;
+      const capitalCuota =
+        i === contract.numeroCuotas ? ajusteFinal : cuotaBase;
       // Calculate commission on the capital
-      const comisionCuota = Math.round((capitalCuota * comisionPorcentaje / 100) * 100) / 100;
+      const comisionCuota =
+        Math.round(((capitalCuota * comisionPorcentaje) / 100) * 100) / 100;
       const totalCuota = Math.round((capitalCuota + comisionCuota) * 100) / 100;
 
       const schedule = this.scheduleRepository.create({
@@ -68,11 +75,7 @@ export class PaymentSchedulesService {
     return this.scheduleRepository.save(schedules);
   }
 
-  private calculateNextDate(
-    baseDate: Date,
-    frequency: PaymentFrequency,
-    cuotaNumber: number,
-  ): Date {
+  private calculateNextDate(baseDate: Date, frequency: PaymentFrequency): Date {
     const startDate = new Date(baseDate);
 
     switch (frequency) {
@@ -82,24 +85,25 @@ export class PaymentSchedulesService {
       case PaymentFrequency.SEMANAL:
         return addWeeks(startDate, 1);
 
-      case PaymentFrequency.QUINCENAL:
+      case PaymentFrequency.QUINCENAL: {
         // Day 15 and last day of month
         const currentDay = startDate.getDate();
         if (currentDay < 15) {
           return setDate(startDate, 15);
-        } else {
-          return endOfMonth(startDate);
         }
+        return endOfMonth(startDate);
+      }
 
-      case PaymentFrequency.MENSUAL:
+      case PaymentFrequency.MENSUAL: {
         const nextMonth = addMonths(startDate, 1);
         const targetDay = startDate.getDate();
         const lastDayOfNextMonth = endOfMonth(nextMonth).getDate();
-        
+
         if (targetDay > lastDayOfNextMonth) {
           return endOfMonth(nextMonth);
         }
         return setDate(nextMonth, targetDay);
+      }
 
       default:
         return addMonths(startDate, 1);
@@ -117,14 +121,19 @@ export class PaymentSchedulesService {
     return this.scheduleRepository.findOne({ where: { id } });
   }
 
-  async updateScheduleStatus(id: number, montoPagado: number): Promise<PaymentSchedule> {
+  async updateScheduleStatus(
+    id: number,
+    montoPagado: number,
+  ): Promise<PaymentSchedule> {
     const schedule = await this.findById(id);
     if (!schedule) {
       throw new BadRequestException('Cuota no encontrada');
     }
 
-    schedule.montoPagado = (parseFloat(schedule.montoPagado.toString()) || 0) + montoPagado;
-    schedule.saldo = parseFloat(schedule.total.toString()) - schedule.montoPagado;
+    schedule.montoPagado =
+      (parseFloat(schedule.montoPagado.toString()) || 0) + montoPagado;
+    schedule.saldo =
+      parseFloat(schedule.total.toString()) - schedule.montoPagado;
 
     if (schedule.saldo <= 0) {
       schedule.saldo = 0;
@@ -136,7 +145,7 @@ export class PaymentSchedulesService {
 
   async updateOverdueStatus(): Promise<void> {
     const today = startOfDay(new Date());
-    
+
     await this.scheduleRepository
       .createQueryBuilder()
       .update(PaymentSchedule)
@@ -148,7 +157,7 @@ export class PaymentSchedulesService {
 
   async getOverdueByContract(contractId: number): Promise<PaymentSchedule[]> {
     const today = startOfDay(new Date());
-    
+
     return this.scheduleRepository
       .createQueryBuilder('schedule')
       .where('schedule.contractId = :contractId', { contractId })
@@ -160,9 +169,9 @@ export class PaymentSchedulesService {
 
   async getNextPending(contractId: number): Promise<PaymentSchedule | null> {
     return this.scheduleRepository.findOne({
-      where: { 
-        contractId, 
-        estado: ScheduleStatus.PENDIENTE 
+      where: {
+        contractId,
+        estado: ScheduleStatus.PENDIENTE,
       },
       order: { numeroCuota: 'ASC' },
     });
@@ -173,7 +182,10 @@ export class PaymentSchedulesService {
    * If payment exceeds one installment, the excess is applied to the next.
    * Returns the list of affected schedules.
    */
-  async applyCascadePayment(contractId: number, monto: number): Promise<PaymentSchedule[]> {
+  async applyCascadePayment(
+    contractId: number,
+    monto: number,
+  ): Promise<PaymentSchedule[]> {
     // Get all unpaid schedules ordered by due date
     const pendingSchedules = await this.scheduleRepository.find({
       where: [
@@ -194,7 +206,9 @@ export class PaymentSchedulesService {
       if (remainingAmount <= 0) break;
 
       const saldo = parseFloat(schedule.saldo.toString());
-      const montoPagadoActual = parseFloat(schedule.montoPagado?.toString() || '0');
+      const montoPagadoActual = parseFloat(
+        schedule.montoPagado?.toString() || '0',
+      );
 
       if (remainingAmount >= saldo) {
         // Pay off this installment completely
@@ -235,7 +249,9 @@ export class PaymentSchedulesService {
   /**
    * Save multiple schedules at once (used by SubcontractsService)
    */
-  async saveSchedules(schedules: PaymentSchedule[]): Promise<PaymentSchedule[]> {
+  async saveSchedules(
+    schedules: PaymentSchedule[],
+  ): Promise<PaymentSchedule[]> {
     return this.scheduleRepository.save(schedules);
   }
 

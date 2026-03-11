@@ -11,7 +11,10 @@ import {
   SubcontractMode,
   SubcontractStatus,
 } from './subcontract.entity';
-import { CreateSubcontractDto, SearchSubcontractsDto } from './dto/subcontract.dto';
+import {
+  CreateSubcontractDto,
+  SearchSubcontractsDto,
+} from './dto/subcontract.dto';
 import { ContractsService } from '../contracts/contracts.service';
 import { PaymentSchedulesService } from '../payment-schedules/payment-schedules.service';
 import { ContractStatus, PaymentFrequency } from '../contracts/contract.entity';
@@ -31,7 +34,9 @@ export class SubcontractsService {
 
   async create(dto: CreateSubcontractDto): Promise<Subcontract> {
     // Validar que el contrato padre existe y está vigente
-    const parentContract = await this.contractsService.findById(dto.parentContractId);
+    const parentContract = await this.contractsService.findById(
+      dto.parentContractId,
+    );
 
     if (parentContract.estado !== ContractStatus.VIGENTE) {
       throw new BadRequestException(
@@ -88,7 +93,6 @@ export class SubcontractsService {
       const fechaVencimiento = this.calculateNextDate(
         fechaActual,
         subcontract.frecuencia as PaymentFrequency,
-        i,
       );
 
       const montoCuota = i === numeroCuotas ? ajusteFinal : cuotaBase;
@@ -110,11 +114,7 @@ export class SubcontractsService {
     return this.scheduleRepository.save(schedules);
   }
 
-  private calculateNextDate(
-    baseDate: Date,
-    frequency: PaymentFrequency,
-    cuotaNumber: number,
-  ): Date {
+  private calculateNextDate(baseDate: Date, frequency: PaymentFrequency): Date {
     const startDate = new Date(baseDate);
 
     switch (frequency) {
@@ -124,15 +124,15 @@ export class SubcontractsService {
       case PaymentFrequency.SEMANAL:
         return addWeeks(startDate, 1);
 
-      case PaymentFrequency.QUINCENAL:
+      case PaymentFrequency.QUINCENAL: {
         const currentDay = startDate.getDate();
         if (currentDay < 15) {
           return setDate(startDate, 15);
-        } else {
-          return endOfMonth(startDate);
         }
+        return endOfMonth(startDate);
+      }
 
-      case PaymentFrequency.MENSUAL:
+      case PaymentFrequency.MENSUAL: {
         const nextMonth = addMonths(startDate, 1);
         const targetDay = startDate.getDate();
         const lastDayOfNextMonth = endOfMonth(nextMonth).getDate();
@@ -141,6 +141,7 @@ export class SubcontractsService {
           return endOfMonth(nextMonth);
         }
         return setDate(nextMonth, targetDay);
+      }
 
       default:
         return addMonths(startDate, 1);
@@ -179,7 +180,9 @@ export class SubcontractsService {
     for (let i = 0; i < pendingSchedules.length; i++) {
       const schedule = pendingSchedules[i];
       const montoExtra =
-        i === pendingSchedules.length - 1 ? montoUltimaCuota : montoExtraPorCuota;
+        i === pendingSchedules.length - 1
+          ? montoUltimaCuota
+          : montoExtraPorCuota;
 
       // Parsear valores actuales
       const currentTotal = parseFloat(schedule.total.toString());
@@ -237,9 +240,12 @@ export class SubcontractsService {
       .orderBy('subcontract.createdAt', 'DESC');
 
     if (parentContractId) {
-      queryBuilder.andWhere('subcontract.parentContractId = :parentContractId', {
-        parentContractId,
-      });
+      queryBuilder.andWhere(
+        'subcontract.parentContractId = :parentContractId',
+        {
+          parentContractId,
+        },
+      );
     }
 
     const total = await queryBuilder.getCount();
@@ -276,7 +282,9 @@ export class SubcontractsService {
     return this.subcontractRepository.save(subcontract);
   }
 
-  async getScheduleById(scheduleId: number): Promise<SubcontractSchedule | null> {
+  async getScheduleById(
+    scheduleId: number,
+  ): Promise<SubcontractSchedule | null> {
     return this.scheduleRepository.findOne({
       where: { id: scheduleId },
       relations: ['subcontract'],
@@ -292,7 +300,9 @@ export class SubcontractsService {
       throw new NotFoundException('Cuota de subcontrato no encontrada');
     }
 
-    const currentMontoPagado = parseFloat(schedule.montoPagado?.toString() || '0');
+    const currentMontoPagado = parseFloat(
+      schedule.montoPagado?.toString() || '0',
+    );
     const monto = parseFloat(schedule.monto.toString());
 
     schedule.montoPagado = currentMontoPagado + montoPagado;
@@ -323,7 +333,10 @@ export class SubcontractsService {
   /**
    * Pay a subcontract schedule installment
    */
-  async paySchedule(scheduleId: number, dto: any): Promise<SubcontractSchedule> {
+  async paySchedule(
+    scheduleId: number,
+    dto: any,
+  ): Promise<SubcontractSchedule> {
     const schedule = await this.getScheduleById(scheduleId);
     if (!schedule) {
       throw new NotFoundException('Cuota de subcontrato no encontrada');
@@ -338,11 +351,14 @@ export class SubcontractsService {
       throw new BadRequestException('El monto debe ser mayor a 0');
     }
 
-    const currentMontoPagado = parseFloat(schedule.montoPagado?.toString() || '0');
+    const currentMontoPagado = parseFloat(
+      schedule.montoPagado?.toString() || '0',
+    );
     const montoTotal = parseFloat(schedule.monto.toString());
 
     schedule.montoPagado = Math.round((currentMontoPagado + monto) * 100) / 100;
-    schedule.saldo = Math.round((montoTotal - schedule.montoPagado) * 100) / 100;
+    schedule.saldo =
+      Math.round((montoTotal - schedule.montoPagado) * 100) / 100;
 
     if (schedule.saldo <= 0) {
       schedule.saldo = 0;

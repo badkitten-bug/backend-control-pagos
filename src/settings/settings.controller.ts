@@ -57,16 +57,15 @@ export class SettingsController {
       },
     }),
   )
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   async uploadLogo(@UploadedFile() file: any) {
     if (!file) {
       return { error: 'No se recibió archivo' };
     }
-    
+
     const logoPath = `/uploads/${file.filename}`;
     await this.settingsService.set('empresa_logo', logoPath);
-    
-    return { 
+
+    return {
       message: 'Logo subido correctamente',
       path: logoPath,
     };

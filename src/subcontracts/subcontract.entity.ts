@@ -57,10 +57,7 @@ export class Subcontract {
   @Column({ type: 'text', default: SubcontractStatus.VIGENTE })
   estado: SubcontractStatus;
 
-  @OneToMany(
-    () => SubcontractSchedule,
-    (schedule) => schedule.subcontract,
-  )
+  @OneToMany(() => SubcontractSchedule, (schedule) => schedule.subcontract)
   cronograma: SubcontractSchedule[];
 
   @CreateDateColumn()

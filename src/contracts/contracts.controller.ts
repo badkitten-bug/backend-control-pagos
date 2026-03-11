@@ -10,7 +10,11 @@ import {
   ParseIntPipe,
 } from '@nestjs/common';
 import { ContractsService } from './contracts.service';
-import { CreateContractDto, UpdateContractDto, SearchContractsDto } from './dto/contract.dto';
+import {
+  CreateContractDto,
+  UpdateContractDto,
+  SearchContractsDto,
+} from './dto/contract.dto';
 
 @Controller('contracts')
 export class ContractsController {

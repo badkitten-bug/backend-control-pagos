@@ -19,4 +19,3 @@ import { ReceiptsModule } from '../receipts/receipts.module';
   exports: [PaymentsService],
 })
 export class PaymentsModule {}
-

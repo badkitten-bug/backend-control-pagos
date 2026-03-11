@@ -1,4 +1,8 @@
-import { Injectable, ConflictException, NotFoundException } from '@nestjs/common';
+import {
+  Injectable,
+  ConflictException,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { User } from './user.entity';
@@ -47,11 +51,22 @@ export class UsersService {
 
   async findAll(): Promise<User[]> {
     return this.usersRepository.find({
-      select: ['id', 'email', 'nombre', 'apellido', 'rol', 'activo', 'createdAt'],
+      select: [
+        'id',
+        'email',
+        'nombre',
+        'apellido',
+        'rol',
+        'activo',
+        'createdAt',
+      ],
     });
   }
 
-  async resetPassword(userId: number, newPassword: string): Promise<{ message: string }> {
+  async resetPassword(
+    userId: number,
+    newPassword: string,
+  ): Promise<{ message: string }> {
     const user = await this.findById(userId);
     if (!user) {
       throw new NotFoundException('Usuario no encontrado');

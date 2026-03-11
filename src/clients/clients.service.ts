@@ -1,8 +1,16 @@
-import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
+import {
+  Injectable,
+  BadRequestException,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, Like, ILike } from 'typeorm';
+import { Repository } from 'typeorm';
 import { Client } from './client.entity';
-import { CreateClientDto, UpdateClientDto, SearchClientDto } from './dto/client.dto';
+import {
+  CreateClientDto,
+  UpdateClientDto,
+  SearchClientDto,
+} from './dto/client.dto';
 
 @Injectable()
 export class ClientsService {
@@ -13,7 +21,9 @@ export class ClientsService {
 
   async create(dto: CreateClientDto): Promise<Client> {
     // Check if DNI already exists
-    const existing = await this.clientRepository.findOne({ where: { dni: dto.dni } });
+    const existing = await this.clientRepository.findOne({
+      where: { dni: dto.dni },
+    });
     if (existing) {
       throw new BadRequestException('Ya existe un cliente con este DNI');
     }
@@ -28,7 +38,7 @@ export class ClientsService {
     if (dto?.search) {
       queryBuilder.where(
         '(client.dni LIKE :search OR client.nombres LIKE :search OR client.apellidos LIKE :search OR client.telefono LIKE :search)',
-        { search: `%${dto.search}%` }
+        { search: `%${dto.search}%` },
       );
     }
 

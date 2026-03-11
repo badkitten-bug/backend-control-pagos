@@ -4,9 +4,13 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, Like, FindOptionsWhere } from 'typeorm';
+import { Repository } from 'typeorm';
 import { Contract, ContractStatus, PaymentFrequency } from './contract.entity';
-import { CreateContractDto, UpdateContractDto, SearchContractsDto } from './dto/contract.dto';
+import {
+  CreateContractDto,
+  UpdateContractDto,
+  SearchContractsDto,
+} from './dto/contract.dto';
 import { VehiclesService } from '../vehicles/vehicles.service';
 import { PaymentSchedulesService } from '../payment-schedules/payment-schedules.service';
 import { VehicleStatus } from '../vehicles/vehicle.entity';
@@ -27,7 +31,10 @@ export class ContractsService {
    * - Biweekly: 2/month
    * - Monthly: 1/month
    */
-  private calculateTotalCuotas(meses: number, frecuencia: PaymentFrequency): number {
+  private calculateTotalCuotas(
+    meses: number,
+    frecuencia: PaymentFrequency,
+  ): number {
     switch (frecuencia) {
       case PaymentFrequency.DIARIO:
         return meses * 26;
@@ -45,7 +52,7 @@ export class ContractsService {
   async create(dto: CreateContractDto): Promise<Contract> {
     // Validate vehicle is available
     const vehicle = await this.vehiclesService.findById(dto.vehicleId);
-    
+
     if (vehicle.estado !== VehicleStatus.DISPONIBLE) {
       throw new BadRequestException(
         'Solo se puede crear contrato para vehículos disponibles',
@@ -74,13 +81,22 @@ export class ContractsService {
     }
 
     if (dto.meses <= 0) {
-      throw new BadRequestException(
-        'El número de meses debe ser mayor a 0',
-      );
+      throw new BadRequestException('El número de meses debe ser mayor a 0');
     }
 
     // Calculate total cuotas from meses + frecuencia
     const numeroCuotas = this.calculateTotalCuotas(dto.meses, dto.frecuencia);
+
+    // Safety limit: avoid generating extremely large schedules
+    //  - Daily: 40 meses ≈ 1040 cuotas
+    //  - This limit allows casos reales y evita cronogramas de miles de filas
+    const MAX_CUOTAS = 2000;
+    if (numeroCuotas > MAX_CUOTAS) {
+      throw new BadRequestException(
+        `No se puede generar un cronograma con más de ${MAX_CUOTAS} cuotas. ` +
+          'Por favor reduce los meses o cambia la frecuencia de pago.',
+      );
+    }
 
     const contract = this.contractRepository.create({
       ...dto,
@@ -165,8 +181,10 @@ export class ContractsService {
       );
     }
 
-    const pagoInicialChanged = dto.pagoInicial !== undefined &&
-      parseFloat(dto.pagoInicial.toString()) !== parseFloat(contract.pagoInicial.toString());
+    const pagoInicialChanged =
+      dto.pagoInicial !== undefined &&
+      parseFloat(dto.pagoInicial.toString()) !==
+        parseFloat(contract.pagoInicial.toString());
 
     Object.assign(contract, dto);
     const savedContract = await this.contractRepository.save(contract);
@@ -196,7 +214,7 @@ export class ContractsService {
     }
 
     contract.estado = ContractStatus.VIGENTE;
-    
+
     // Update vehicle status
     await this.vehiclesService.updateStatus(
       contract.vehicleId,
@@ -223,7 +241,7 @@ export class ContractsService {
     const contract = await this.findById(id);
 
     contract.estado = ContractStatus.ANULADO;
-    
+
     // Return vehicle to available
     await this.vehiclesService.updateStatus(
       contract.vehicleId,

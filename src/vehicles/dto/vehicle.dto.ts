@@ -90,7 +90,7 @@ export class SearchVehiclesDto {
   modelo?: string;
 
   @IsOptional()
-  @Transform(({ value }) => value ? parseInt(value, 10) : undefined)
+  @Transform(({ value }) => (value ? parseInt(value, 10) : undefined))
   @IsNumber()
   anio?: number;
 
@@ -99,16 +99,15 @@ export class SearchVehiclesDto {
   estado?: VehicleStatus;
 
   @IsOptional()
-  @Transform(({ value }) => value ? parseInt(value, 10) : 1)
+  @Transform(({ value }) => (value ? parseInt(value, 10) : 1))
   @IsNumber()
   @Min(1)
   page?: number = 1;
 
   @IsOptional()
-  @Transform(({ value }) => value ? parseInt(value, 10) : 10)
+  @Transform(({ value }) => (value ? parseInt(value, 10) : 10))
   @IsNumber()
   @Min(1)
   @Max(100)
   limit?: number = 10;
 }
-

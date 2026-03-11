@@ -26,7 +26,9 @@ export class AuditService {
       accion,
       usuarioId,
       usuarioNombre,
-      datosAnteriores: datosAnteriores ? JSON.stringify(datosAnteriores) : undefined,
+      datosAnteriores: datosAnteriores
+        ? JSON.stringify(datosAnteriores)
+        : undefined,
       datosNuevos: datosNuevos ? JSON.stringify(datosNuevos) : undefined,
       descripcion,
     };

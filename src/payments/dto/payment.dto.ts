@@ -15,7 +15,10 @@ export class CreatePaymentDto {
   @IsNumber()
   contractId: number;
 
-  @ApiPropertyOptional({ example: 1, description: 'ID de la cuota del cronograma' })
+  @ApiPropertyOptional({
+    example: 1,
+    description: 'ID de la cuota del cronograma',
+  })
   @IsOptional()
   @IsNumber()
   scheduleId?: number;
@@ -24,7 +27,7 @@ export class CreatePaymentDto {
   @IsEnum(PaymentType, { message: 'Tipo de pago inválido' })
   tipo: PaymentType;
 
-  @ApiProperty({ example: 150.00, description: 'Monto pagado' })
+  @ApiProperty({ example: 150.0, description: 'Monto pagado' })
   @IsNumber()
   @IsPositive()
   importe: number;
@@ -42,7 +45,10 @@ export class CreatePaymentDto {
   @IsString()
   numeroOperacion?: string;
 
-  @ApiPropertyOptional({ example: 'BCP ahorros', description: 'Cuenta depósito' })
+  @ApiPropertyOptional({
+    example: 'BCP ahorros',
+    description: 'Cuenta depósito',
+  })
   @IsOptional()
   @IsString()
   cuentaDeposito?: string;
@@ -55,7 +61,7 @@ export class CreatePaymentDto {
 
 export class SearchPaymentsDto {
   @IsOptional()
-  @Transform(({ value }) => value ? parseInt(value, 10) : undefined)
+  @Transform(({ value }) => (value ? parseInt(value, 10) : undefined))
   @IsNumber()
   contractId?: number;
 
@@ -77,4 +83,3 @@ export class SearchPaymentsDto {
   @IsNumber()
   limit?: number = 10;
 }
-

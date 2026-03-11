@@ -16,7 +16,8 @@ import { UsersModule } from '../users/users.module';
     JwtModule.registerAsync({
       inject: [ConfigService],
       useFactory: (config: ConfigService) => ({
-        secret: config.get<string>('JWT_SECRET') || 'control-pagos-jwt-secret-2024',
+        secret:
+          config.get<string>('JWT_SECRET') || 'control-pagos-jwt-secret-2024',
         signOptions: { expiresIn: '7d' },
       }),
     }),

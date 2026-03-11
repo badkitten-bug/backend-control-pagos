@@ -1,7 +1,7 @@
 import { Injectable, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, Between, MoreThanOrEqual, LessThanOrEqual } from 'typeorm';
-import { Payment, PaymentType } from './payment.entity';
+import { Repository, MoreThanOrEqual } from 'typeorm';
+import { Payment } from './payment.entity';
 import { CreatePaymentDto, SearchPaymentsDto } from './dto/payment.dto';
 import { ContractsService } from '../contracts/contracts.service';
 import { PaymentSchedulesService } from '../payment-schedules/payment-schedules.service';
@@ -24,19 +24,21 @@ export class PaymentsService {
     // Look for same payment made in last 5 seconds
     const fiveSecondsAgo = new Date();
     fiveSecondsAgo.setSeconds(fiveSecondsAgo.getSeconds() - 5);
-    
+
     const recentDuplicate = await this.paymentRepository.findOne({
       where: {
         contractId: dto.contractId,
         tipo: dto.tipo,
         importe: dto.importe,
         usuarioId: user.id,
-        createdAt: MoreThanOrEqual(fiveSecondsAgo)
-      }
+        createdAt: MoreThanOrEqual(fiveSecondsAgo),
+      },
     });
 
     if (recentDuplicate) {
-       throw new BadRequestException('Un pago idéntico fue registrado hace unos segundos. Por favor, actualice la página.');
+      throw new BadRequestException(
+        'Un pago idéntico fue registrado hace unos segundos. Por favor, actualice la página.',
+      );
     }
 
     const tipoStr = String(dto.tipo);
@@ -56,7 +58,9 @@ export class PaymentsService {
     // If it's an initial payment, mark contract
     if (tipoStr === 'Pago Inicial') {
       if (contract.pagoInicialRegistrado) {
-        throw new BadRequestException('El pago inicial ya fue registrado para este contrato');
+        throw new BadRequestException(
+          'El pago inicial ya fue registrado para este contrato',
+        );
       }
       console.log('>>> Marking initial payment');
       await this.contractsService.markInitialPaymentRegistered(dto.contractId);
@@ -65,10 +69,15 @@ export class PaymentsService {
     // For installment payments, use cascade logic
     if (tipoStr === 'Cuota') {
       console.log('>>> Applying CASCADE payment for:', dto.importe);
-      const affected = await this.schedulesService.applyCascadePayment(dto.contractId, dto.importe);
+      const affected = await this.schedulesService.applyCascadePayment(
+        dto.contractId,
+        dto.importe,
+      );
       console.log('>>> Affected schedules:', affected.length);
-      affected.forEach(s => {
-        console.log(`   Cuota ${s.numeroCuota}: saldo=${s.saldo}, estado=${s.estado}`);
+      affected.forEach((s) => {
+        console.log(
+          `   Cuota ${s.numeroCuota}: saldo=${s.saldo}, estado=${s.estado}`,
+        );
       });
     } else {
       console.log('>>> NOT applying cascade, tipo is:', tipoStr);
@@ -149,4 +158,3 @@ export class PaymentsService {
     });
   }
 }
-

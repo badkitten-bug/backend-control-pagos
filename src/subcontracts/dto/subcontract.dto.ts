@@ -1,4 +1,12 @@
-import { IsNotEmpty, IsNumber, IsOptional, IsString, IsEnum, IsDateString, Min } from 'class-validator';
+import {
+  IsNotEmpty,
+  IsNumber,
+  IsOptional,
+  IsString,
+  IsEnum,
+  IsDateString,
+  Min,
+} from 'class-validator';
 import { SubcontractMode } from '../subcontract.entity';
 
 export class CreateSubcontractDto {

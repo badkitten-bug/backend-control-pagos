@@ -61,7 +61,10 @@ export class PaymentsController {
     }
 
     const contract = await this.contractsService.findById(payment.contractId);
-    const pdfBuffer = await this.receiptsService.generateReceipt(payment, contract);
+    const pdfBuffer = await this.receiptsService.generateReceipt(
+      payment,
+      contract,
+    );
 
     res.set({
       'Content-Type': 'application/pdf',
@@ -72,4 +75,3 @@ export class PaymentsController {
     res.send(pdfBuffer);
   }
 }
-

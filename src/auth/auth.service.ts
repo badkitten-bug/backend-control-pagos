@@ -35,7 +35,10 @@ export class AuthService {
       dto.nombre,
       dto.apellido,
     );
-    return { message: 'Cuenta creada exitosamente. Su cuenta está pendiente de aprobación por un administrador.' };
+    return {
+      message:
+        'Cuenta creada exitosamente. Su cuenta está pendiente de aprobación por un administrador.',
+    };
   }
 
   async login(dto: LoginDto): Promise<AuthResponse> {
