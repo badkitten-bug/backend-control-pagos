@@ -26,7 +26,7 @@ export class ContractsService {
 
   /**
    * Calculate total number of installments based on months and payment frequency.
-   * - Daily: 26 working days/month (Mon-Sat)
+   * - Daily: 30 calendar days/month (aprox)
    * - Weekly: 4 weeks/month
    * - Biweekly: 2/month
    * - Monthly: 1/month
@@ -37,7 +37,8 @@ export class ContractsService {
   ): number {
     switch (frecuencia) {
       case PaymentFrequency.DIARIO:
-        return meses * 26;
+        // Usuarios pagan también sábados y domingos; usamos 30 días/mes aprox.
+        return meses * 30;
       case PaymentFrequency.SEMANAL:
         return meses * 4;
       case PaymentFrequency.QUINCENAL:
@@ -186,11 +187,16 @@ export class ContractsService {
       parseFloat(dto.pagoInicial.toString()) !==
         parseFloat(contract.pagoInicial.toString());
 
+    const fechaInicioChanged =
+      dto.fechaInicio !== undefined &&
+      new Date(dto.fechaInicio).getTime() !==
+        new Date(contract.fechaInicio).getTime();
+
     Object.assign(contract, dto);
     const savedContract = await this.contractRepository.save(contract);
 
-    // Regenerate schedule if pago inicial changed
-    if (pagoInicialChanged) {
+    // Regenerar cronograma si cambia pago inicial o fecha de inicio
+    if (pagoInicialChanged || fechaInicioChanged) {
       await this.schedulesService.deleteByContract(contract.id);
       await this.schedulesService.generateSchedule(savedContract);
     }

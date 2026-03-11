@@ -73,6 +73,13 @@ export class UpdateContractDto {
   @Min(0)
   pagoInicial?: number;
 
+  @ApiPropertyOptional({
+    description: 'Modificar fecha de inicio (solo en Borrador)',
+  })
+  @IsOptional()
+  @IsDateString()
+  fechaInicio?: string;
+
   @IsOptional()
   @IsString()
   clienteNombre?: string;
