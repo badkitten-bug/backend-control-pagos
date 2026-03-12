@@ -55,7 +55,10 @@ export class AuthService {
       throw new UnauthorizedException('Credenciales inválidas');
     }
 
-    if (!user.activo) {
+    // En producción exigimos que el usuario esté activo.
+    // En desarrollo (por ejemplo usando SQLite local) permitimos el login
+    // aunque el flag "activo" sea false, para no depender de un admin.
+    if (!user.activo && process.env.NODE_ENV === 'production') {
       throw new UnauthorizedException('Usuario inactivo');
     }
 

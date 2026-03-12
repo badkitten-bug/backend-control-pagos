@@ -14,6 +14,7 @@ import {
 import { VehiclesService } from '../vehicles/vehicles.service';
 import { PaymentSchedulesService } from '../payment-schedules/payment-schedules.service';
 import { VehicleStatus } from '../vehicles/vehicle.entity';
+import { addMonths, differenceInCalendarDays, startOfDay } from 'date-fns';
 
 @Injectable()
 export class ContractsService {
@@ -24,21 +25,28 @@ export class ContractsService {
     private schedulesService: PaymentSchedulesService,
   ) {}
 
-  /**
-   * Calculate total number of installments based on months and payment frequency.
-   * - Daily: 30 calendar days/month (aprox)
-   * - Weekly: 4 weeks/month
-   * - Biweekly: 2/month
-   * - Monthly: 1/month
-   */
   private calculateTotalCuotas(
     meses: number,
     frecuencia: PaymentFrequency,
+    fechaInicio?: string,
   ): number {
+    if (meses <= 0) {
+      return 0;
+    }
+
     switch (frecuencia) {
       case PaymentFrequency.DIARIO:
-        // Usuarios pagan también sábados y domingos; usamos 30 días/mes aprox.
-        return meses * 30;
+        // Opción B: usamos días de calendario reales entre fechaInicio y fechaInicio + meses
+        // (incluye fines de semana y respeta meses de 28–31 días).
+        {
+          const base =
+            fechaInicio !== undefined
+              ? startOfDay(new Date(fechaInicio))
+              : startOfDay(new Date());
+          const fin = addMonths(base, meses);
+          const dias = differenceInCalendarDays(fin, base);
+          return dias;
+        }
       case PaymentFrequency.SEMANAL:
         return meses * 4;
       case PaymentFrequency.QUINCENAL:
@@ -85,8 +93,12 @@ export class ContractsService {
       throw new BadRequestException('El número de meses debe ser mayor a 0');
     }
 
-    // Calculate total cuotas from meses + frecuencia
-    const numeroCuotas = this.calculateTotalCuotas(dto.meses, dto.frecuencia);
+    // Calculate total cuotas from meses + frecuencia (para diario usa días reales de calendario)
+    const numeroCuotas = this.calculateTotalCuotas(
+      dto.meses,
+      dto.frecuencia,
+      dto.fechaInicio,
+    );
 
     // Safety limit: avoid generating extremely large schedules
     //  - Daily: 40 meses ≈ 1040 cuotas
