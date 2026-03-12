@@ -81,6 +81,35 @@ export class UpdateContractDto {
   fechaInicio?: string;
 
   @IsOptional()
+  @IsNumber()
+  @IsPositive()
+  precio?: number;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  comisionPorcentaje?: number;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  moraPorcentaje?: number;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(1)
+  meses?: number;
+
+  @IsOptional()
+  @IsEnum(PaymentFrequency)
+  frecuencia?: PaymentFrequency;
+
+  /** Calculado internamente, no enviar desde frontend */
+  @IsOptional()
+  @IsNumber()
+  numeroCuotas?: number;
+
+  @IsOptional()
   @IsString()
   clienteNombre?: string;
 

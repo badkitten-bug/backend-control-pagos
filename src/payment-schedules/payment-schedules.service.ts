@@ -2,7 +2,7 @@ import { Injectable, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { PaymentSchedule, ScheduleStatus } from './payment-schedule.entity';
-import { Contract, PaymentFrequency } from '../contracts/contract.entity';
+import { Contract, ContractStatus, PaymentFrequency } from '../contracts/contract.entity';
 import {
   addDays,
   addWeeks,
@@ -86,12 +86,23 @@ export class PaymentSchedulesService {
         return addWeeks(startDate, 1);
 
       case PaymentFrequency.QUINCENAL: {
-        // Day 15 and last day of month
+        // Quincenal: alternar entre día 15 y último día de cada mes
         const currentDay = startDate.getDate();
+        const lastDayOfMonth = endOfMonth(startDate).getDate();
+
+        // Si aún no llegamos al 15, siguiente vencimiento es 15 del mismo mes
         if (currentDay < 15) {
           return setDate(startDate, 15);
         }
-        return endOfMonth(startDate);
+
+        // Si estamos entre 15 y el final del mes, siguiente es último día del mes
+        if (currentDay < lastDayOfMonth) {
+          return endOfMonth(startDate);
+        }
+
+        // Si ya estamos en el último día del mes, pasamos al 15 del mes siguiente
+        const nextMonth = addMonths(startDate, 1);
+        return setDate(nextMonth, 15);
       }
 
       case PaymentFrequency.MENSUAL: {
@@ -146,12 +157,15 @@ export class PaymentSchedulesService {
   async updateOverdueStatus(): Promise<void> {
     const today = startOfDay(new Date());
 
+    // Solo marcar vencidas cuotas de contratos activos (Vigente)
     await this.scheduleRepository
-      .createQueryBuilder()
+      .createQueryBuilder('schedule')
+      .leftJoin('schedule.contract', 'contract')
       .update(PaymentSchedule)
       .set({ estado: ScheduleStatus.VENCIDA })
-      .where('estado = :estado', { estado: ScheduleStatus.PENDIENTE })
-      .andWhere('fechaVencimiento < :today', { today })
+      .where('schedule.estado = :estado', { estado: ScheduleStatus.PENDIENTE })
+      .andWhere('schedule.fechaVencimiento < :today', { today })
+      .andWhere('contract.estado = :vigente', { vigente: ContractStatus.VIGENTE })
       .execute();
   }
 
@@ -168,13 +182,15 @@ export class PaymentSchedulesService {
   }
 
   async getNextPending(contractId: number): Promise<PaymentSchedule | null> {
-    return this.scheduleRepository.findOne({
-      where: {
-        contractId,
-        estado: ScheduleStatus.PENDIENTE,
-      },
-      order: { numeroCuota: 'ASC' },
-    });
+    // Incluye tanto PENDIENTE como VENCIDA para no perder cuotas atrasadas
+    return this.scheduleRepository
+      .createQueryBuilder('schedule')
+      .where('schedule.contractId = :contractId', { contractId })
+      .andWhere('schedule.estado IN (:...estados)', {
+        estados: [ScheduleStatus.PENDIENTE, ScheduleStatus.VENCIDA],
+      })
+      .orderBy('schedule.numeroCuota', 'ASC')
+      .getOne();
   }
 
   /**

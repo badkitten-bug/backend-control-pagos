@@ -47,8 +47,15 @@ export class ContractsService {
           const dias = differenceInCalendarDays(fin, base);
           return dias;
         }
-      case PaymentFrequency.SEMANAL:
-        return meses * 4;
+      case PaymentFrequency.SEMANAL: {
+        const base =
+          fechaInicio !== undefined
+            ? startOfDay(new Date(fechaInicio))
+            : startOfDay(new Date());
+        const fin = addMonths(base, meses);
+        const dias = differenceInCalendarDays(fin, base);
+        return Math.round(dias / 7);
+      }
       case PaymentFrequency.QUINCENAL:
         return meses * 2;
       case PaymentFrequency.MENSUAL:
@@ -229,11 +236,50 @@ export class ContractsService {
       new Date(dto.fechaInicio).getTime() !==
         new Date(contract.fechaInicio).getTime();
 
+    const mesesChanged =
+      dto.meses !== undefined && dto.meses !== contract.meses;
+
+    const frecuenciaChanged =
+      dto.frecuencia !== undefined && dto.frecuencia !== contract.frecuencia;
+
+    const precioChanged =
+      dto.precio !== undefined &&
+      parseFloat(dto.precio.toString()) !==
+        parseFloat(contract.precio.toString());
+
+    const comisionChanged =
+      dto.comisionPorcentaje !== undefined &&
+      parseFloat(dto.comisionPorcentaje.toString()) !==
+        parseFloat((contract.comisionPorcentaje || 0).toString());
+
+    // Si cambian meses o frecuencia, recalcular numeroCuotas antes de guardar
+    if (mesesChanged || frecuenciaChanged || fechaInicioChanged) {
+      const nuevaFechaInicio =
+        dto.fechaInicio ?? contract.fechaInicio?.toString();
+      const nuevosMeses = dto.meses ?? contract.meses;
+      const nuevaFrecuencia = dto.frecuencia ?? contract.frecuencia;
+      dto = {
+        ...dto,
+        numeroCuotas: this.calculateTotalCuotas(
+          nuevosMeses,
+          nuevaFrecuencia,
+          nuevaFechaInicio,
+        ),
+      };
+    }
+
     Object.assign(contract, dto);
     const savedContract = await this.contractRepository.save(contract);
 
-    // Regenerar cronograma si cambia pago inicial o fecha de inicio
-    if (pagoInicialChanged || fechaInicioChanged) {
+    // Regenerar cronograma si cambia cualquier dato que afecta montos o fechas
+    if (
+      pagoInicialChanged ||
+      fechaInicioChanged ||
+      mesesChanged ||
+      frecuenciaChanged ||
+      precioChanged ||
+      comisionChanged
+    ) {
       await this.schedulesService.deleteByContract(contract.id);
       await this.schedulesService.generateSchedule(savedContract);
     }
@@ -277,6 +323,13 @@ export class ContractsService {
     }
 
     contract.estado = ContractStatus.CANCELADO;
+
+    // Liberar vehículo igual que en annul
+    await this.vehiclesService.updateStatus(
+      contract.vehicleId,
+      VehicleStatus.DISPONIBLE,
+    );
+
     return this.contractRepository.save(contract);
   }
 

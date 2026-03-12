@@ -42,10 +42,15 @@ export class PaymentsService {
     }
 
     const tipoStr = String(dto.tipo);
-    console.log('=== PAYMENT CREATE ===');
-    console.log('Tipo:', tipoStr);
-    console.log('Importe:', dto.importe);
-    console.log('ContractId:', dto.contractId);
+
+    // Verificar pago inicial ANTES de guardar para evitar duplicados por race condition
+    if (tipoStr === 'Pago Inicial') {
+      if (contract.pagoInicialRegistrado) {
+        throw new BadRequestException(
+          'El pago inicial ya fue registrado para este contrato',
+        );
+      }
+    }
 
     const payment = this.paymentRepository.create({
       ...dto,
@@ -55,14 +60,7 @@ export class PaymentsService {
 
     const savedPayment = await this.paymentRepository.save(payment);
 
-    // If it's an initial payment, mark contract
     if (tipoStr === 'Pago Inicial') {
-      if (contract.pagoInicialRegistrado) {
-        throw new BadRequestException(
-          'El pago inicial ya fue registrado para este contrato',
-        );
-      }
-      console.log('>>> Marking initial payment');
       await this.contractsService.markInitialPaymentRegistered(dto.contractId);
     }
 
