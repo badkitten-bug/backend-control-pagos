@@ -157,16 +157,19 @@ export class VehiclesService {
       });
     }
 
-    // Excluir vehículos que ya tienen un contrato en estado Borrador
+    // Excluir vehículos que ya tienen un contrato en estado Borrador.
+    // Subquery nativa para evitar dependencia circular con ContractsModule.
     return this.vehicleRepository
       .createQueryBuilder('vehicle')
       .where('vehicle.estado = :estado', { estado: VehicleStatus.DISPONIBLE })
       .andWhere(
-        `NOT EXISTS (
-          SELECT 1 FROM contracts c
-          WHERE c."vehicleId" = vehicle.id
-            AND c.estado = 'Borrador'
-        )`,
+        (qb) =>
+          `vehicle.id NOT IN ${qb
+            .subQuery()
+            .select('c.vehicleId')
+            .from('contracts', 'c')
+            .where("c.estado = 'Borrador'")
+            .getQuery()}`,
       )
       .orderBy('vehicle.placa', 'ASC')
       .getMany();

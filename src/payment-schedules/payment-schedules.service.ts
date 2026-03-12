@@ -157,15 +157,20 @@ export class PaymentSchedulesService {
   async updateOverdueStatus(): Promise<void> {
     const today = startOfDay(new Date());
 
-    // Solo marcar vencidas cuotas de contratos activos (Vigente)
+    // Solo marcar vencidas cuotas de contratos activos (Vigente).
+    // UPDATE no admite JOIN en TypeORM → usamos subquery correlacionada.
     await this.scheduleRepository
-      .createQueryBuilder('schedule')
-      .leftJoin('schedule.contract', 'contract')
+      .createQueryBuilder()
       .update(PaymentSchedule)
       .set({ estado: ScheduleStatus.VENCIDA })
-      .where('schedule.estado = :estado', { estado: ScheduleStatus.PENDIENTE })
-      .andWhere('schedule.fechaVencimiento < :today', { today })
-      .andWhere('contract.estado = :vigente', { vigente: ContractStatus.VIGENTE })
+      .where('estado = :pendiente', { pendiente: ScheduleStatus.PENDIENTE })
+      .andWhere('fechaVencimiento < :today', { today })
+      .andWhere(
+        `contractId IN (
+          SELECT id FROM contracts WHERE estado = :vigente
+        )`,
+        { vigente: ContractStatus.VIGENTE },
+      )
       .execute();
   }
 
