@@ -115,6 +115,19 @@ export class SearchContractsDto {
   @IsEnum(ContractStatus)
   estado?: ContractStatus;
 
+  /** Excluir contratos con este estado (ej. Anulado para la vista "En curso") */
+  @IsOptional()
+  @IsEnum(ContractStatus)
+  excludeEstado?: ContractStatus;
+
+  @IsOptional()
+  @IsDateString()
+  fechaInicioDesde?: string;
+
+  @IsOptional()
+  @IsDateString()
+  fechaInicioHasta?: string;
+
   @IsOptional()
   @IsString()
   clienteNombre?: string;

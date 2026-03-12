@@ -114,7 +114,16 @@ export class ContractsService {
   }
 
   async findAll(dto: SearchContractsDto) {
-    const { page = 1, limit = 10, placa, estado, clienteNombre } = dto;
+    const {
+      page = 1,
+      limit = 10,
+      placa,
+      estado,
+      excludeEstado,
+      fechaInicioDesde,
+      fechaInicioHasta,
+      clienteNombre,
+    } = dto;
 
     const queryBuilder = this.contractRepository
       .createQueryBuilder('contract')
@@ -131,9 +140,25 @@ export class ContractsService {
       queryBuilder.andWhere('contract.estado = :estado', { estado });
     }
 
+    if (excludeEstado) {
+      queryBuilder.andWhere('contract.estado != :excludeEstado', { excludeEstado });
+    }
+
     if (clienteNombre) {
       queryBuilder.andWhere('contract.clienteNombre LIKE :nombre', {
         nombre: `%${clienteNombre}%`,
+      });
+    }
+
+    if (fechaInicioDesde) {
+      queryBuilder.andWhere('contract.fechaInicio >= :fechaInicioDesde', {
+        fechaInicioDesde,
+      });
+    }
+
+    if (fechaInicioHasta) {
+      queryBuilder.andWhere('contract.fechaInicio <= :fechaInicioHasta', {
+        fechaInicioHasta,
       });
     }
 
