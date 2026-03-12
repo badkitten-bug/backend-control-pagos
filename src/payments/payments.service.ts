@@ -66,19 +66,10 @@ export class PaymentsService {
 
     // For installment payments, use cascade logic
     if (tipoStr === 'Cuota') {
-      console.log('>>> Applying CASCADE payment for:', dto.importe);
-      const affected = await this.schedulesService.applyCascadePayment(
+      await this.schedulesService.applyCascadePayment(
         dto.contractId,
         dto.importe,
       );
-      console.log('>>> Affected schedules:', affected.length);
-      affected.forEach((s) => {
-        console.log(
-          `   Cuota ${s.numeroCuota}: saldo=${s.saldo}, estado=${s.estado}`,
-        );
-      });
-    } else {
-      console.log('>>> NOT applying cascade, tipo is:', tipoStr);
     }
 
     return savedPayment;

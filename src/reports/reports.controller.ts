@@ -94,6 +94,14 @@ export class ReportsController {
     return this.reportsService.getDashboardStats();
   }
 
+  @Get('cartera-viva')
+  async getCarteraViva(
+    @Query('placa') placa?: string,
+    @Query('frecuencia') frecuencia?: string,
+  ) {
+    return this.reportsService.getCarteraViva({ placa, frecuencia });
+  }
+
   @Get('traffic-light')
   async getTrafficLightReport(
     @Query('semaforo') semaforo?: 'verde' | 'ambar' | 'rojo',

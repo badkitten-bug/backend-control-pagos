@@ -675,4 +675,77 @@ export class ReportsService {
       cobranzasMensuales: monthlyData,
     };
   }
+
+  async getCarteraViva(params: { placa?: string; frecuencia?: string }) {
+    const query = this.contractRepository
+      .createQueryBuilder('contract')
+      .leftJoinAndSelect('contract.vehicle', 'vehicle')
+      .where('contract.estado = :estado', { estado: ContractStatus.VIGENTE });
+
+    if (params.placa) {
+      query.andWhere('vehicle.placa LIKE :placa', {
+        placa: `%${params.placa.toUpperCase()}%`,
+      });
+    }
+    if (params.frecuencia) {
+      query.andWhere('contract.frecuencia = :frecuencia', {
+        frecuencia: params.frecuencia,
+      });
+    }
+
+    const contracts = await query.orderBy('contract.id', 'ASC').getMany();
+
+    const today = startOfDay(new Date());
+
+    const result = await Promise.all(
+      contracts.map(async (contract) => {
+        const schedules = await this.scheduleRepository.find({
+          where: { contractId: contract.id },
+        });
+
+        const pendientes = schedules.filter(
+          (s) => s.estado !== ScheduleStatus.PAGADA,
+        );
+        const vencidas = pendientes.filter(
+          (s) => new Date(s.fechaVencimiento) < today,
+        );
+        const proxima = pendientes
+          .filter((s) => new Date(s.fechaVencimiento) >= today)
+          .sort(
+            (a, b) =>
+              new Date(a.fechaVencimiento).getTime() -
+              new Date(b.fechaVencimiento).getTime(),
+          )[0];
+
+        const saldoTotal = pendientes.reduce(
+          (sum, s) => sum + parseFloat(s.saldo.toString()),
+          0,
+        );
+        const montoVencido = vencidas.reduce(
+          (sum, s) => sum + parseFloat(s.saldo.toString()),
+          0,
+        );
+
+        return {
+          contractId: contract.id,
+          placa: contract.vehicle?.placa ?? '',
+          marca: contract.vehicle?.marca ?? '',
+          modelo: contract.vehicle?.modelo ?? '',
+          clienteNombre: contract.clienteNombre ?? '',
+          clienteTelefono: contract.clienteTelefono ?? '',
+          frecuencia: contract.frecuencia,
+          fechaInicio: contract.fechaInicio,
+          numeroCuotas: contract.numeroCuotas,
+          cuotasPendientes: pendientes.length,
+          cuotasVencidas: vencidas.length,
+          saldoTotal: Math.round(saldoTotal * 100) / 100,
+          montoVencido: Math.round(montoVencido * 100) / 100,
+          proximaFecha: proxima?.fechaVencimiento ?? null,
+          proximoMonto: proxima ? parseFloat(proxima.total.toString()) : null,
+        };
+      }),
+    );
+
+    return result;
+  }
 }

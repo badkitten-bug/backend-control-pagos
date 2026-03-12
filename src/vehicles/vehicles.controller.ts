@@ -34,8 +34,8 @@ export class VehiclesController {
   }
 
   @Get('available')
-  findAvailable() {
-    return this.vehiclesService.findAvailable();
+  findAvailable(@Query('excludeWithBorrador') excludeWithBorrador?: string) {
+    return this.vehiclesService.findAvailable(excludeWithBorrador === 'true');
   }
 
   @Get('placa/:placa')

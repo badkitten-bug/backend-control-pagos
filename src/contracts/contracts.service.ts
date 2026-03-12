@@ -220,9 +220,22 @@ export class ContractsService {
   async update(id: number, dto: UpdateContractDto): Promise<Contract> {
     const contract = await this.findById(id);
 
-    if (contract.estado !== ContractStatus.BORRADOR) {
+    // Datos de cliente (nombre, DNI, tel, dirección, observaciones) son editables
+    // en cualquier estado activo. Cambios financieros o de plazo solo en Borrador.
+    const hasFinancialChange =
+      dto.pagoInicial !== undefined ||
+      dto.fechaInicio !== undefined ||
+      dto.meses !== undefined ||
+      dto.frecuencia !== undefined ||
+      dto.precio !== undefined ||
+      dto.comisionPorcentaje !== undefined;
+
+    if (
+      hasFinancialChange &&
+      contract.estado !== ContractStatus.BORRADOR
+    ) {
       throw new BadRequestException(
-        'Solo se pueden editar contratos en estado Borrador',
+        'Los cambios financieros y de plazo solo se pueden realizar en contratos Borrador',
       );
     }
 

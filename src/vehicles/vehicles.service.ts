@@ -149,11 +149,27 @@ export class VehiclesService {
     });
   }
 
-  async findAvailable(): Promise<Vehicle[]> {
-    return this.vehicleRepository.find({
-      where: { estado: VehicleStatus.DISPONIBLE },
-      order: { placa: 'ASC' },
-    });
+  async findAvailable(excludeWithBorrador = false): Promise<Vehicle[]> {
+    if (!excludeWithBorrador) {
+      return this.vehicleRepository.find({
+        where: { estado: VehicleStatus.DISPONIBLE },
+        order: { placa: 'ASC' },
+      });
+    }
+
+    // Excluir vehículos que ya tienen un contrato en estado Borrador
+    return this.vehicleRepository
+      .createQueryBuilder('vehicle')
+      .where('vehicle.estado = :estado', { estado: VehicleStatus.DISPONIBLE })
+      .andWhere(
+        `NOT EXISTS (
+          SELECT 1 FROM contracts c
+          WHERE c."vehicleId" = vehicle.id
+            AND c.estado = 'Borrador'
+        )`,
+      )
+      .orderBy('vehicle.placa', 'ASC')
+      .getMany();
   }
 
   async isAvailable(id: number): Promise<boolean> {
