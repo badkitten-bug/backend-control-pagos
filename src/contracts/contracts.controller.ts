@@ -62,4 +62,9 @@ export class ContractsController {
   annul(@Param('id', ParseIntPipe) id: number) {
     return this.contractsService.annul(id);
   }
+
+  @Patch(':id/rebuild-schedule')
+  rebuildSchedule(@Param('id', ParseIntPipe) id: number) {
+    return this.contractsService.rebuildSchedule(id);
+  }
 }

@@ -365,4 +365,15 @@ export class ContractsService {
     contract.pagoInicialRegistrado = true;
     return this.contractRepository.save(contract);
   }
+
+  async rebuildSchedule(id: number): Promise<Contract> {
+    const contract = await this.findById(id);
+    if (contract.estado === ContractStatus.ANULADO) {
+      throw new BadRequestException(
+        'No se puede recalcular el cronograma de un contrato anulado',
+      );
+    }
+    await this.schedulesService.rebuildPendingSchedule(contract);
+    return contract;
+  }
 }

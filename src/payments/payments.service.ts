@@ -41,6 +41,13 @@ export class PaymentsService {
       );
     }
 
+    // Solo se pueden registrar pagos en contratos vigentes
+    if (contract.estado !== ContractStatus.VIGENTE) {
+      throw new BadRequestException(
+        `No se pueden registrar pagos en un contrato con estado "${contract.estado}"`,
+      );
+    }
+
     const tipoStr = String(dto.tipo);
 
     // Verificar pago inicial ANTES de guardar para evitar duplicados por race condition

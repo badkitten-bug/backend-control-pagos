@@ -42,7 +42,7 @@ export class PaymentSchedulesService {
       ) / 100;
 
     const schedules: PaymentSchedule[] = [];
-    let fechaActual = new Date(contract.fechaInicio);
+    let fechaActual = startOfDay(new Date(contract.fechaInicio));
 
     for (let i = 1; i <= contract.numeroCuotas; i++) {
       const fechaVencimiento = this.calculateNextDate(
@@ -76,14 +76,16 @@ export class PaymentSchedulesService {
   }
 
   private calculateNextDate(baseDate: Date, frequency: PaymentFrequency): Date {
-    const startDate = new Date(baseDate);
+    // Normalizar a medianoche UTC para evitar desfases de zona horaria al
+    // comparar días y al guardar en columnas DATE de PostgreSQL.
+    const startDate = startOfDay(new Date(baseDate));
 
     switch (frequency) {
       case PaymentFrequency.DIARIO:
-        return addDays(startDate, 1);
+        return startOfDay(addDays(startDate, 1));
 
       case PaymentFrequency.SEMANAL:
-        return addWeeks(startDate, 1);
+        return startOfDay(addWeeks(startDate, 1));
 
       case PaymentFrequency.QUINCENAL: {
         // Quincenal: alternar entre día 15 y último día de cada mes
@@ -92,17 +94,17 @@ export class PaymentSchedulesService {
 
         // Si aún no llegamos al 15, siguiente vencimiento es 15 del mismo mes
         if (currentDay < 15) {
-          return setDate(startDate, 15);
+          return startOfDay(setDate(startDate, 15));
         }
 
         // Si estamos entre 15 y el final del mes, siguiente es último día del mes
         if (currentDay < lastDayOfMonth) {
-          return endOfMonth(startDate);
+          return startOfDay(endOfMonth(startDate));
         }
 
         // Si ya estamos en el último día del mes, pasamos al 15 del mes siguiente
         const nextMonth = addMonths(startDate, 1);
-        return setDate(nextMonth, 15);
+        return startOfDay(setDate(nextMonth, 15));
       }
 
       case PaymentFrequency.MENSUAL: {
@@ -111,13 +113,13 @@ export class PaymentSchedulesService {
         const lastDayOfNextMonth = endOfMonth(nextMonth).getDate();
 
         if (targetDay > lastDayOfNextMonth) {
-          return endOfMonth(nextMonth);
+          return startOfDay(endOfMonth(nextMonth));
         }
-        return setDate(nextMonth, targetDay);
+        return startOfDay(setDate(nextMonth, targetDay));
       }
 
       default:
-        return addMonths(startDate, 1);
+        return startOfDay(addMonths(startDate, 1));
     }
   }
 
@@ -281,5 +283,37 @@ export class PaymentSchedulesService {
    */
   async deleteByContract(contractId: number): Promise<void> {
     await this.scheduleRepository.delete({ contractId });
+  }
+
+  /**
+   * Recalcula las fechas de las cuotas PENDIENTES y VENCIDAS de un contrato,
+   * manteniendo intactas las cuotas ya PAGADAS. Útil para corregir cronogramas
+   * generados con bugs anteriores.
+   */
+  async rebuildPendingSchedule(contract: Contract): Promise<PaymentSchedule[]> {
+    const all = await this.scheduleRepository.find({
+      where: { contractId: contract.id },
+      order: { numeroCuota: 'ASC' },
+    });
+
+    const paid = all.filter((s) => s.estado === ScheduleStatus.PAGADA);
+    const pending = all.filter((s) => s.estado !== ScheduleStatus.PAGADA);
+
+    if (pending.length === 0) return paid;
+
+    // Punto de partida: fecha de la última cuota pagada o fechaInicio del contrato
+    const lastPaid = paid[paid.length - 1];
+    let fechaActual = lastPaid
+      ? startOfDay(new Date(lastPaid.fechaVencimiento))
+      : startOfDay(new Date(contract.fechaInicio));
+
+    for (const cuota of pending) {
+      const nuevaFecha = this.calculateNextDate(fechaActual, contract.frecuencia);
+      cuota.fechaVencimiento = nuevaFecha;
+      fechaActual = nuevaFecha;
+    }
+
+    await this.scheduleRepository.save(pending);
+    return [...paid, ...pending];
   }
 }
