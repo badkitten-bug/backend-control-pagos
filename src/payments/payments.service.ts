@@ -41,14 +41,19 @@ export class PaymentsService {
       );
     }
 
-    // Solo se pueden registrar pagos en contratos vigentes
-    if (contract.estado !== ContractStatus.VIGENTE) {
+    const tipoStr = String(dto.tipo);
+
+    // El Pago Inicial se puede registrar en Borrador (es requisito antes de activar).
+    // Cualquier otro tipo de pago solo está permitido en contratos Vigentes.
+    const estadoValido =
+      contract.estado === ContractStatus.VIGENTE ||
+      (tipoStr === 'Pago Inicial' && contract.estado === ContractStatus.BORRADOR);
+
+    if (!estadoValido) {
       throw new BadRequestException(
         `No se pueden registrar pagos en un contrato con estado "${contract.estado}"`,
       );
     }
-
-    const tipoStr = String(dto.tipo);
 
     // Verificar pago inicial ANTES de guardar para evitar duplicados por race condition
     if (tipoStr === 'Pago Inicial') {

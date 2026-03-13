@@ -281,7 +281,11 @@ export class ContractsService {
       };
     }
 
-    Object.assign(contract, dto);
+    // Filtrar propiedades undefined para no sobreescribir valores existentes del contrato
+    const cleanDto = Object.fromEntries(
+      Object.entries(dto).filter(([, v]) => v !== undefined),
+    );
+    Object.assign(contract, cleanDto);
     const savedContract = await this.contractRepository.save(contract);
 
     // Regenerar cronograma si cambia cualquier dato que afecta montos o fechas
