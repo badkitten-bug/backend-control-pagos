@@ -377,7 +377,12 @@ export class ContractsService {
         'No se puede recalcular el cronograma de un contrato anulado',
       );
     }
-    await this.schedulesService.rebuildPendingSchedule(contract);
-    return contract;
+    const rebuilt = await this.schedulesService.rebuildPendingSchedule(contract);
+    // Si el cronograma estaba completamente vacío (borrado por un error anterior),
+    // hacer regeneración completa desde cero.
+    if (rebuilt.length === 0) {
+      await this.schedulesService.generateSchedule(contract);
+    }
+    return this.findById(id);
   }
 }
