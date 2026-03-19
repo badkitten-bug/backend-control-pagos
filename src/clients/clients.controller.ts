@@ -4,6 +4,7 @@ import {
   Post,
   Put,
   Delete,
+  Patch,
   Body,
   Param,
   Query,
@@ -53,5 +54,10 @@ export class ClientsController {
   @Delete(':id')
   delete(@Param('id', ParseIntPipe) id: number) {
     return this.clientsService.delete(id);
+  }
+
+  @Patch(':id/toggle-active')
+  toggleActive(@Param('id', ParseIntPipe) id: number) {
+    return this.clientsService.toggleActive(id);
   }
 }

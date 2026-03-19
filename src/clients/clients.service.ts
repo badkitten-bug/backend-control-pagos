@@ -63,7 +63,11 @@ export class ClientsService {
 
   async update(id: number, dto: UpdateClientDto): Promise<Client> {
     const client = await this.findById(id);
-    Object.assign(client, dto);
+    // Evitar sobreescribir con undefined (ej. { activo: undefined })
+    const cleanDto = Object.fromEntries(
+      Object.entries(dto).filter(([, v]) => v !== undefined),
+    );
+    Object.assign(client, cleanDto);
     return this.clientRepository.save(client);
   }
 
@@ -72,6 +76,12 @@ export class ClientsService {
     // Soft delete - just mark as inactive
     client.activo = false;
     await this.clientRepository.save(client);
+  }
+
+  async toggleActive(id: number): Promise<Client> {
+    const client = await this.findById(id);
+    client.activo = !client.activo;
+    return this.clientRepository.save(client);
   }
 
   async getActiveClients(): Promise<Client[]> {
