@@ -2,15 +2,13 @@ import { Injectable, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { PaymentSchedule, ScheduleStatus } from './payment-schedule.entity';
-import { Contract, ContractStatus, PaymentFrequency } from '../contracts/contract.entity';
+import { Contract, ContractStatus } from '../contracts/contract.entity';
+import { startOfDay } from 'date-fns';
 import {
-  addDays,
-  addWeeks,
-  addMonths,
-  endOfMonth,
-  setDate,
-  startOfDay,
-} from 'date-fns';
+  calculateNextDate,
+  calcularCuotas,
+  aplicarCascadePago,
+} from './schedule.utils';
 
 @Injectable()
 export class PaymentSchedulesService {
@@ -20,108 +18,50 @@ export class PaymentSchedulesService {
   ) {}
 
   async generateSchedule(contract: Contract): Promise<PaymentSchedule[]> {
-    // SQLite returns decimal columns as strings, need to parse them
     const precio = parseFloat(contract.precio.toString());
     const pagoInicial = parseFloat(contract.pagoInicial.toString());
     const comisionPorcentaje = parseFloat(
       (contract.comisionPorcentaje || 0).toString(),
     );
-    const capitalTotal = precio - pagoInicial;
 
-    if (capitalTotal <= 0) {
+    if (precio - pagoInicial <= 0) {
       throw new BadRequestException(
         'El pago inicial no puede ser mayor o igual al precio',
       );
     }
 
-    const cuotaBase =
-      Math.floor((capitalTotal / contract.numeroCuotas) * 100) / 100;
-    const ajusteFinal =
-      Math.round(
-        (capitalTotal - cuotaBase * (contract.numeroCuotas - 1)) * 100,
-      ) / 100;
+    const cuotas = calcularCuotas(
+      precio,
+      pagoInicial,
+      contract.numeroCuotas,
+      comisionPorcentaje,
+    );
 
     const schedules: PaymentSchedule[] = [];
     let fechaActual = startOfDay(new Date(contract.fechaInicio));
 
-    for (let i = 1; i <= contract.numeroCuotas; i++) {
-      const fechaVencimiento = this.calculateNextDate(
-        fechaActual,
-        contract.frecuencia,
+    for (const cuota of cuotas) {
+      const fechaVencimiento = calculateNextDate(fechaActual, contract.frecuencia);
+
+      schedules.push(
+        this.scheduleRepository.create({
+          contractId: contract.id,
+          numeroCuota: cuota.numeroCuota,
+          fechaVencimiento,
+          capital: cuota.capital,
+          comision: cuota.comision,
+          total: cuota.total,
+          saldo: cuota.total,
+          estado: ScheduleStatus.PENDIENTE,
+        }),
       );
 
-      const capitalCuota =
-        i === contract.numeroCuotas ? ajusteFinal : cuotaBase;
-      // Calculate commission on the capital
-      const comisionCuota =
-        Math.round(((capitalCuota * comisionPorcentaje) / 100) * 100) / 100;
-      const totalCuota = Math.round((capitalCuota + comisionCuota) * 100) / 100;
-
-      const schedule = this.scheduleRepository.create({
-        contractId: contract.id,
-        numeroCuota: i,
-        fechaVencimiento,
-        capital: capitalCuota,
-        comision: comisionCuota,
-        total: totalCuota,
-        saldo: totalCuota,
-        estado: ScheduleStatus.PENDIENTE,
-      });
-
-      schedules.push(schedule);
       fechaActual = fechaVencimiento;
     }
 
     return this.scheduleRepository.save(schedules);
   }
 
-  private calculateNextDate(baseDate: Date, frequency: PaymentFrequency): Date {
-    // Normalizar a medianoche UTC para evitar desfases de zona horaria al
-    // comparar días y al guardar en columnas DATE de PostgreSQL.
-    const startDate = startOfDay(new Date(baseDate));
-
-    switch (frequency) {
-      case PaymentFrequency.DIARIO:
-        return startOfDay(addDays(startDate, 1));
-
-      case PaymentFrequency.SEMANAL:
-        return startOfDay(addWeeks(startDate, 1));
-
-      case PaymentFrequency.QUINCENAL: {
-        // Quincenal: alternar entre día 15 y último día de cada mes
-        const currentDay = startDate.getDate();
-        const lastDayOfMonth = endOfMonth(startDate).getDate();
-
-        // Si aún no llegamos al 15, siguiente vencimiento es 15 del mismo mes
-        if (currentDay < 15) {
-          return startOfDay(setDate(startDate, 15));
-        }
-
-        // Si estamos entre 15 y el final del mes, siguiente es último día del mes
-        if (currentDay < lastDayOfMonth) {
-          return startOfDay(endOfMonth(startDate));
-        }
-
-        // Si ya estamos en el último día del mes, pasamos al 15 del mes siguiente
-        const nextMonth = addMonths(startDate, 1);
-        return startOfDay(setDate(nextMonth, 15));
-      }
-
-      case PaymentFrequency.MENSUAL: {
-        const nextMonth = addMonths(startDate, 1);
-        const targetDay = startDate.getDate();
-        const lastDayOfNextMonth = endOfMonth(nextMonth).getDate();
-
-        if (targetDay > lastDayOfNextMonth) {
-          return startOfDay(endOfMonth(nextMonth));
-        }
-        return startOfDay(setDate(nextMonth, targetDay));
-      }
-
-      default:
-        return startOfDay(addMonths(startDate, 1));
-    }
-  }
 
   async findByContract(contractId: number): Promise<PaymentSchedule[]> {
     return this.scheduleRepository.find({
@@ -222,37 +162,20 @@ export class PaymentSchedulesService {
       return [];
     }
 
-    let remainingAmount = monto;
-    const affectedSchedules: PaymentSchedule[] = [];
+    const resultados = aplicarCascadePago(pendingSchedules, monto);
+    const afectadas: PaymentSchedule[] = [];
 
-    for (const schedule of pendingSchedules) {
-      if (remainingAmount <= 0) break;
-
-      const saldo = parseFloat(schedule.saldo.toString());
-      const montoPagadoActual = parseFloat(
-        schedule.montoPagado?.toString() || '0',
-      );
-
-      if (remainingAmount >= saldo) {
-        // Pay off this installment completely
-        schedule.montoPagado = montoPagadoActual + saldo;
-        schedule.saldo = 0;
-        schedule.estado = ScheduleStatus.PAGADA;
-        remainingAmount -= saldo;
-      } else {
-        // Partial payment
-        schedule.montoPagado = montoPagadoActual + remainingAmount;
-        schedule.saldo = Math.round((saldo - remainingAmount) * 100) / 100;
-        remainingAmount = 0;
+    for (let i = 0; i < pendingSchedules.length; i++) {
+      const antes = parseFloat(pendingSchedules[i].saldo.toString());
+      const despues = resultados[i].saldo;
+      if (despues !== antes) {
+        Object.assign(pendingSchedules[i], resultados[i]);
+        afectadas.push(pendingSchedules[i]);
       }
-
-      affectedSchedules.push(schedule);
     }
 
-    // Save all affected schedules
-    await this.scheduleRepository.save(affectedSchedules);
-
-    return affectedSchedules;
+    await this.scheduleRepository.save(afectadas);
+    return afectadas;
   }
 
   /**
@@ -308,7 +231,7 @@ export class PaymentSchedulesService {
       : startOfDay(new Date(contract.fechaInicio));
 
     for (const cuota of pending) {
-      const nuevaFecha = this.calculateNextDate(fechaActual, contract.frecuencia);
+      const nuevaFecha = calculateNextDate(fechaActual, contract.frecuencia);
       cuota.fechaVencimiento = nuevaFecha;
       fechaActual = nuevaFecha;
     }

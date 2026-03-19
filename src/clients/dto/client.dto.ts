@@ -6,6 +6,7 @@ import {
   IsBoolean,
   Length,
 } from 'class-validator';
+import { Transform } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class CreateClientDto {
@@ -133,6 +134,11 @@ export class SearchClientDto {
   search?: string;
 
   @IsOptional()
+  @Transform(({ value }) => {
+    if (value === 'true') return true;
+    if (value === 'false') return false;
+    return value;
+  })
   @IsBoolean()
   activo?: boolean;
 }
