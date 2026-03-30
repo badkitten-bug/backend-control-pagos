@@ -113,11 +113,27 @@ export class PaymentsService {
       estadoAnulado: ContractStatus.ANULADO,
     });
 
-    // Suma total del período completo (todos los registros, sin paginación)
-    const sumResult = await queryBuilder
-      .clone()
+    // Suma total del período completo — query independiente sin ORDER BY
+    // (el clone() arrastra orderBy y PostgreSQL rechaza ORDER BY en queries con SUM)
+    const sumBuilder = this.paymentRepository
+      .createQueryBuilder('payment')
+      .leftJoin('payment.contract', 'contract')
       .select('SUM(payment.importe)', 'totalImporte')
-      .getRawOne();
+      .andWhere('contract.estado != :estadoAnulado', {
+        estadoAnulado: ContractStatus.ANULADO,
+      });
+
+    if (contractId) {
+      sumBuilder.andWhere('payment.contractId = :contractId', { contractId });
+    }
+    if (fechaDesde) {
+      sumBuilder.andWhere('payment.fechaPago >= :fechaDesde', { fechaDesde });
+    }
+    if (fechaHasta) {
+      sumBuilder.andWhere('payment.fechaPago <= :fechaHasta', { fechaHasta });
+    }
+
+    const sumResult = await sumBuilder.getRawOne();
 
     const total = await queryBuilder.getCount();
     const items = await queryBuilder
