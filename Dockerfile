@@ -10,6 +10,8 @@ RUN npm run build
 FROM node:22-alpine
 WORKDIR /app
 
+ENV TZ=America/Lima
+
 # Create uploads directory
 RUN mkdir -p uploads
 

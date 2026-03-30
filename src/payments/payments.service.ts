@@ -113,6 +113,12 @@ export class PaymentsService {
       estadoAnulado: ContractStatus.ANULADO,
     });
 
+    // Suma total del período completo (todos los registros, sin paginación)
+    const sumResult = await queryBuilder
+      .clone()
+      .select('SUM(payment.importe)', 'totalImporte')
+      .getRawOne();
+
     const total = await queryBuilder.getCount();
     const items = await queryBuilder
       .skip((page - 1) * limit)
@@ -125,6 +131,7 @@ export class PaymentsService {
       page,
       limit,
       totalPages: Math.ceil(total / limit),
+      totalImporte: parseFloat(sumResult?.totalImporte || 0),
     };
   }
 

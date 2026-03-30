@@ -8,6 +8,8 @@ services:
     envVars:
       - key: NODE_ENV
         value: production
+      - key: TZ
+        value: America/Lima
       # Opción 1 (recomendada con Supabase): una sola variable con la URL del pooler
       - key: DATABASE_URL
         sync: false
