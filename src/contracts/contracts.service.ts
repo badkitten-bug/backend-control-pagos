@@ -361,7 +361,12 @@ export class ContractsService {
       VehicleStatus.DISPONIBLE,
     );
 
-    return this.contractRepository.save(contract);
+    await this.contractRepository.save(contract);
+
+    // Eliminar cronograma para que los montos no aparezcan en Caja
+    await this.schedulesService.deleteByContract(id);
+
+    return this.findById(id);
   }
 
   async markInitialPaymentRegistered(id: number): Promise<Contract> {
