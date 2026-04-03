@@ -45,13 +45,10 @@ export class CreatePaymentDto {
   @IsString()
   numeroOperacion?: string;
 
-  @ApiPropertyOptional({
-    example: 'BCP ahorros',
-    description: 'Cuenta depósito',
-  })
+  @ApiPropertyOptional({ example: 1, description: 'ID de la cuenta destino' })
   @IsOptional()
-  @IsString()
-  cuentaDeposito?: string;
+  @IsNumber()
+  cuentaId?: number;
 
   @ApiPropertyOptional()
   @IsOptional()
@@ -64,6 +61,11 @@ export class SearchPaymentsDto {
   @Transform(({ value }) => (value ? parseInt(value, 10) : undefined))
   @IsNumber()
   contractId?: number;
+
+  @IsOptional()
+  @Transform(({ value }) => (value ? parseInt(value, 10) : undefined))
+  @IsNumber()
+  cuentaId?: number;
 
   @IsOptional()
   @IsDateString()

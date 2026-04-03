@@ -8,6 +8,7 @@ import {
 } from 'typeorm';
 import { Contract } from '../contracts/contract.entity';
 import { PaymentSchedule } from '../payment-schedules/payment-schedule.entity';
+import { Cuenta } from '../cuentas/cuenta.entity';
 
 export enum PaymentType {
   PAGO_INICIAL = 'Pago Inicial',
@@ -60,6 +61,13 @@ export class Payment {
 
   @Column({ nullable: true })
   cuentaDeposito: string;
+
+  @Column({ nullable: true })
+  cuentaId: number;
+
+  @ManyToOne(() => Cuenta, (cuenta) => cuenta.pagos, { nullable: true })
+  @JoinColumn({ name: 'cuentaId' })
+  cuenta: Cuenta;
 
   @Column({ nullable: true })
   voucher: string;

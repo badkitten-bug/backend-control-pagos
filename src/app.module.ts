@@ -16,6 +16,7 @@ import { SettingsModule } from './settings/settings.module';
 import { ClientsModule } from './clients/clients.module';
 import { AuditModule } from './audit/audit.module';
 import { SubcontractsModule } from './subcontracts/subcontracts.module';
+import { CuentasModule } from './cuentas/cuentas.module';
 
 @Module({
   imports: [
@@ -60,6 +61,7 @@ import { SubcontractsModule } from './subcontracts/subcontracts.module';
     SettingsModule,
     ClientsModule,
     SubcontractsModule,
+    CuentasModule,
   ],
   controllers: [AppController],
   providers: [AppService],

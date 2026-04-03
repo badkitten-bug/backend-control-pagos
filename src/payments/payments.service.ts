@@ -88,16 +88,21 @@ export class PaymentsService {
   }
 
   async findAll(dto: SearchPaymentsDto) {
-    const { page = 1, limit = 10, contractId, fechaDesde, fechaHasta } = dto;
+    const { page = 1, limit = 10, contractId, cuentaId, fechaDesde, fechaHasta } = dto;
 
     const queryBuilder = this.paymentRepository
       .createQueryBuilder('payment')
       .leftJoinAndSelect('payment.contract', 'contract')
       .leftJoinAndSelect('contract.vehicle', 'vehicle')
+      .leftJoinAndSelect('payment.cuenta', 'cuenta')
       .orderBy('payment.createdAt', 'DESC');
 
     if (contractId) {
       queryBuilder.andWhere('payment.contractId = :contractId', { contractId });
+    }
+
+    if (cuentaId) {
+      queryBuilder.andWhere('payment.cuentaId = :cuentaId', { cuentaId });
     }
 
     if (fechaDesde) {
@@ -126,6 +131,9 @@ export class PaymentsService {
     if (contractId) {
       sumBuilder.andWhere('payment.contractId = :contractId', { contractId });
     }
+    if (cuentaId) {
+      sumBuilder.andWhere('payment.cuentaId = :cuentaId', { cuentaId });
+    }
     if (fechaDesde) {
       sumBuilder.andWhere('payment.fechaPago >= :fechaDesde', { fechaDesde });
     }
@@ -133,7 +141,36 @@ export class PaymentsService {
       sumBuilder.andWhere('payment.fechaPago <= :fechaHasta', { fechaHasta });
     }
 
-    const sumResult = await sumBuilder.getRawOne();
+    // Totales agrupados por cuenta — siempre sobre el período completo (sin filtro cuentaId)
+    const totalesBuilder = this.paymentRepository
+      .createQueryBuilder('payment')
+      .leftJoin('payment.contract', 'contract')
+      .leftJoin('payment.cuenta', 'cuenta')
+      .select('payment.cuentaId', 'cuentaId')
+      .addSelect('cuenta.nombre', 'cuentaNombre')
+      .addSelect('SUM(payment.importe)', 'total')
+      .addSelect('COUNT(payment.id)', 'cantidad')
+      .andWhere('contract.estado != :estadoAnulado', {
+        estadoAnulado: ContractStatus.ANULADO,
+      })
+      .groupBy('payment.cuentaId')
+      .addGroupBy('cuenta.nombre')
+      .orderBy('total', 'DESC');
+
+    if (contractId) {
+      totalesBuilder.andWhere('payment.contractId = :contractId', { contractId });
+    }
+    if (fechaDesde) {
+      totalesBuilder.andWhere('payment.fechaPago >= :fechaDesde', { fechaDesde });
+    }
+    if (fechaHasta) {
+      totalesBuilder.andWhere('payment.fechaPago <= :fechaHasta', { fechaHasta });
+    }
+
+    const [sumResult, totalesPorCuenta] = await Promise.all([
+      sumBuilder.getRawOne(),
+      totalesBuilder.getRawMany(),
+    ]);
 
     const total = await queryBuilder.getCount();
     const items = await queryBuilder
@@ -148,6 +185,12 @@ export class PaymentsService {
       limit,
       totalPages: Math.ceil(total / limit),
       totalImporte: parseFloat(sumResult?.totalImporte || 0),
+      totalesPorCuenta: totalesPorCuenta.map((r) => ({
+        cuentaId: r.cuentaId ? parseInt(r.cuentaId, 10) : null,
+        cuentaNombre: r.cuentaNombre || 'Sin cuenta',
+        total: parseFloat(r.total || 0),
+        cantidad: parseInt(r.cantidad || 0, 10),
+      })),
     };
   }
 
